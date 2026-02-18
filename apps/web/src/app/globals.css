@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: 241 245 249;
+  --fg: 15 23 42;
+  --card: 255 255 255;
+}
+
+.dark {
+  --bg: 2 6 23;
+  --fg: 226 232 240;
+  --card: 15 23 42;
+}
+
+body {
+  color: rgb(var(--fg));
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.16), transparent 50%),
+    radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.16), transparent 40%),
+    rgb(var(--bg));
+}
+
