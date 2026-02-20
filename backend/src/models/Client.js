@@ -13,6 +13,10 @@ const clientSchema = new mongoose.Schema(
       trim: true,
       index: true
     },
+    contactRole: {
+      type: String,
+      trim: true
+    },
     email: {
       type: String,
       trim: true,
@@ -31,6 +35,32 @@ const clientSchema = new mongoose.Schema(
       type: String,
       trim: true
     },
+    website: {
+      type: String,
+      trim: true
+    },
+    timezone: {
+      type: String,
+      trim: true
+    },
+    country: {
+      type: String,
+      trim: true
+    },
+    city: {
+      type: String,
+      trim: true
+    },
+    contractValue: {
+      type: Number,
+      default: 0
+    },
+    status: {
+      type: String,
+      enum: ["prospect", "active", "inactive"],
+      default: "active",
+      index: true
+    },
     notes: {
       type: String,
       trim: true
@@ -40,5 +70,6 @@ const clientSchema = new mongoose.Schema(
 );
 
 clientSchema.index({ name: 1, company: 1 });
+clientSchema.index({ status: 1, industry: 1 });
 
 module.exports = mongoose.model("Client", clientSchema);

@@ -30,43 +30,41 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-hero">
-        <div className="auth-logo-block">
+    <div className="auth-page split">
+      <section className="auth-brand-panel">
+        <div className="auth-brand-center">
           <img src={arkLogo} alt="ArK" />
           <h1>ArK</h1>
         </div>
-        <p>Precision people operations with analytics, workflow, and control.</p>
-      </div>
+      </section>
+      <section className="auth-form-panel">
+        <form className="auth-card" onSubmit={onSubmit}>
+          <h2>Welcome back</h2>
+          <label htmlFor="email">Email</label>
+          <input
+            id="email"
+            type="email"
+            placeholder="you@company.com"
+            value={form.email}
+            onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
+            required
+          />
 
-      <form className="auth-card" onSubmit={onSubmit}>
-        <h2>Sign in</h2>
-        <label htmlFor="email">Email</label>
-        <input
-          id="email"
-          type="email"
-          placeholder="you@company.com"
-          value={form.email}
-          onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
-          required
-        />
+          <label htmlFor="password">Password</label>
+          <input
+            id="password"
+            type="password"
+            placeholder="Enter password"
+            value={form.password}
+            onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
+            required
+          />
 
-        <label htmlFor="password">Password</label>
-        <input
-          id="password"
-          type="password"
-          placeholder="Enter password"
-          value={form.password}
-          onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
-          required
-        />
-
-        <button className="btn btn-primary" type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Signing in..." : "Login"}
-        </button>
-
-        <p className="muted">Tip: bootstrap admin from backend using /api/auth/register-admin.</p>
-      </form>
+          <button className="btn btn-primary" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Signing in..." : "Login"}
+          </button>
+        </form>
+      </section>
     </div>
   );
 };

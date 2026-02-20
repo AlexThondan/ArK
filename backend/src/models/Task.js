@@ -60,6 +60,19 @@ const taskSchema = new mongoose.Schema(
       max: 100,
       default: 0
     },
+    employeeSubmission: {
+      isChecked: {
+        type: Boolean,
+        default: false
+      },
+      updateNote: {
+        type: String,
+        trim: true
+      },
+      submittedAt: {
+        type: Date
+      }
+    },
     dueDate: {
       type: Date,
       index: true

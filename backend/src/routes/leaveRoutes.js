@@ -3,6 +3,7 @@ const {
   applyLeave,
   getMyLeaves,
   getAllLeaves,
+  updateLeave,
   reviewLeave,
   getLeaveAnalytics
 } = require("../controllers/leaveController");
@@ -14,9 +15,11 @@ const router = express.Router();
 /**
  * POST /api/leaves
  * GET /api/leaves/me
+ * PUT /api/leaves/:id
  */
 router.post("/", protect, allowRoles("employee"), applyLeave);
 router.get("/me", protect, allowRoles("employee"), getMyLeaves);
+router.put("/:id", protect, updateLeave);
 
 /**
  * GET /api/leaves/admin

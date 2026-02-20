@@ -13,7 +13,15 @@ const uploadDocument = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Document file is required");
   }
 
-  const { type = "other", visibility = "private", userId } = req.body;
+  const {
+    type = "other",
+    visibility = "private",
+    category = "",
+    description = "",
+    expiresOn,
+    tags = "",
+    userId
+  } = req.body;
   const targetUserId = req.user.role === "admin" && userId ? userId : req.user._id;
 
   if (req.user.role !== "admin" && userId && userId !== req.user._id.toString()) {
@@ -24,6 +32,16 @@ const uploadDocument = asyncHandler(async (req, res) => {
     user: targetUserId,
     uploadedBy: req.user._id,
     type,
+    category,
+    description,
+    tags: Array.isArray(tags)
+      ? tags
+      : tags
+          .toString()
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean),
+    expiresOn: expiresOn ? new Date(expiresOn) : undefined,
     visibility,
     filename: req.file.filename,
     originalName: req.file.originalname,
@@ -44,13 +62,24 @@ const uploadDocument = asyncHandler(async (req, res) => {
  * @access Private
  */
 const getMyDocuments = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 20, type, userId } = req.query;
+  const { page = 1, limit = 20, type, visibility, category, search, expiresBefore, userId } = req.query;
   const { skip, limit: parsedLimit, page: parsedPage } = buildPagination(page, limit);
 
   const filter = {
     user: req.user.role === "admin" && userId ? userId : req.user._id
   };
   if (type) filter.type = type;
+  if (visibility) filter.visibility = visibility;
+  if (category) filter.category = category;
+  if (expiresBefore) filter.expiresOn = { $lte: new Date(expiresBefore) };
+  if (search) {
+    filter.$or = [
+      { originalName: { $regex: search, $options: "i" } },
+      { category: { $regex: search, $options: "i" } },
+      { description: { $regex: search, $options: "i" } },
+      { tags: { $elemMatch: { $regex: search, $options: "i" } } }
+    ];
+  }
 
   const [items, total] = await Promise.all([
     Document.find(filter).sort({ createdAt: -1 }).skip(skip).limit(parsedLimit),

@@ -5,16 +5,23 @@ import useTheme from "../hooks/useTheme";
 
 const SettingsPage = () => {
   const { theme, toggleTheme } = useTheme();
-  const [form, setForm] = useState({ currentPassword: "", newPassword: "" });
+  const [form, setForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (form.newPassword !== form.confirmPassword) {
+      toast.error("New password and confirm password do not match");
+      return;
+    }
     try {
       setLoading(true);
-      await authApi.changePassword(form);
+      await authApi.changePassword({
+        currentPassword: form.currentPassword,
+        newPassword: form.newPassword
+      });
       toast.success("Password updated");
-      setForm({ currentPassword: "", newPassword: "" });
+      setForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
     } catch (error) {
       toast.error(error.message);
     } finally {
@@ -29,10 +36,7 @@ const SettingsPage = () => {
       </header>
 
       <article className="card action-row">
-        <div>
-          <h3>Appearance</h3>
-          <p className="muted">Toggle dark mode for better visual comfort.</p>
-        </div>
+        <h3>Theme</h3>
         <button className="btn btn-outline" type="button" onClick={toggleTheme}>
           Switch to {theme === "dark" ? "Light" : "Dark"} Mode
         </button>
@@ -58,9 +62,20 @@ const SettingsPage = () => {
             onChange={(event) => setForm((prev) => ({ ...prev, newPassword: event.target.value }))}
           />
         </label>
-        <button className="btn btn-primary" type="submit" disabled={loading}>
-          {loading ? "Updating..." : "Update Password"}
-        </button>
+        <label>
+          Confirm Password
+          <input
+            type="password"
+            required
+            value={form.confirmPassword}
+            onChange={(event) => setForm((prev) => ({ ...prev, confirmPassword: event.target.value }))}
+          />
+        </label>
+        <div className="button-row full-width settings-actions">
+          <button className="btn btn-primary" type="submit" disabled={loading}>
+            {loading ? "Updating..." : "Update Password"}
+          </button>
+        </div>
       </form>
     </section>
   );

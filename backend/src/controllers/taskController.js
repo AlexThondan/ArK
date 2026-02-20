@@ -3,6 +3,7 @@ const User = require("../models/User");
 const ApiError = require("../utils/ApiError");
 const asyncHandler = require("../utils/asyncHandler");
 const { buildPagination } = require("../utils/pagination");
+const { createNotification } = require("../utils/notificationService");
 
 /**
  * @desc Create task and assign to employee
@@ -28,6 +29,17 @@ const createTask = asyncHandler(async (req, res) => {
     priority,
     project,
     assignedBy: req.user._id
+  });
+
+  await createNotification({
+    userId: assignedTo,
+    type: "task-assigned",
+    title: "New task assigned",
+    message: `${title} has been assigned to you.`,
+    link: assignee.role === "admin" ? "/admin/projects" : "/employee/tasks",
+    metadata: {
+      taskId: task._id
+    }
   });
 
   res.status(201).json({
@@ -124,12 +136,54 @@ const updateTaskStatus = asyncHandler(async (req, res) => {
     throw new ApiError(403, "You can update only your own tasks");
   }
 
-  const { status, progress } = req.body;
+  const { status, progress, checked, updateNote } = req.body;
+
+  if (typeof checked !== "undefined") {
+    task.employeeSubmission = task.employeeSubmission || {};
+    task.employeeSubmission.isChecked = Boolean(checked);
+    task.employeeSubmission.submittedAt = new Date();
+  }
+
+  if (typeof updateNote !== "undefined") {
+    task.employeeSubmission = task.employeeSubmission || {};
+    task.employeeSubmission.updateNote = updateNote;
+    task.employeeSubmission.submittedAt = new Date();
+  }
+
   if (status) task.status = status;
   if (typeof progress !== "undefined") task.progress = Number(progress);
-  if (task.status === "done") task.progress = 100;
+
+  if (task.employeeSubmission?.isChecked) {
+    task.status = "done";
+    task.progress = 100;
+  } else if (task.status === "done" && !status && typeof checked !== "undefined") {
+    task.status = "in-progress";
+    task.progress = Number(progress || 60);
+  }
+
+  if (task.status === "done") {
+    task.progress = 100;
+    task.employeeSubmission = task.employeeSubmission || {};
+    task.employeeSubmission.isChecked = true;
+    task.employeeSubmission.submittedAt = task.employeeSubmission.submittedAt || new Date();
+  }
 
   await task.save();
+
+  if (!isAdmin && isAssignee) {
+    await createNotification({
+      userId: task.assignedBy,
+      type: "task-update",
+      title: "Task progress updated",
+      message: `${task.title} was updated by the assignee.`,
+      link: "/admin/projects",
+      metadata: {
+        taskId: task._id,
+        status: task.status,
+        progress: task.progress
+      }
+    });
+  }
 
   res.status(200).json({
     success: true,
@@ -165,6 +219,19 @@ const uploadTaskAttachment = asyncHandler(async (req, res) => {
     size: req.file.size
   });
   await task.save();
+
+  if (!isAdmin && isAssignee) {
+    await createNotification({
+      userId: task.assignedBy,
+      type: "task-update",
+      title: "Task attachment submitted",
+      message: `${task.title} has a new attachment from the assignee.`,
+      link: "/admin/projects",
+      metadata: {
+        taskId: task._id
+      }
+    });
+  }
 
   res.status(200).json({
     success: true,

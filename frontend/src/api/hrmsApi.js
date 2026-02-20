@@ -35,6 +35,7 @@ export const leaveApi = {
   apply: async (payload) => (await client.post("/leaves", payload)).data,
   my: async (params) => (await client.get("/leaves/me", { params })).data,
   admin: async (params) => (await client.get("/leaves/admin", { params })).data,
+  update: async (id, payload) => (await client.put(`/leaves/${id}`, payload)).data,
   review: async (id, payload) => (await client.patch(`/leaves/${id}/review`, payload)).data,
   analytics: async () => (await client.get("/leaves/analytics")).data
 };
@@ -52,11 +53,16 @@ export const taskApi = {
 };
 
 export const documentApi = {
-  upload: async ({ file, type, visibility }) => {
+  upload: async ({ file, type, visibility, category, description, expiresOn, tags, userId }) => {
     const formData = new FormData();
     formData.append("file", file);
     if (type) formData.append("type", type);
     if (visibility) formData.append("visibility", visibility);
+    if (category) formData.append("category", category);
+    if (description) formData.append("description", description);
+    if (expiresOn) formData.append("expiresOn", expiresOn);
+    if (tags) formData.append("tags", tags);
+    if (userId) formData.append("userId", userId);
     return (await client.post("/documents/upload", formData)).data;
   },
   my: async (params) => (await client.get("/documents/me", { params })).data
@@ -78,4 +84,10 @@ export const reportApi = {
   departmentProductivity: async () => (await client.get("/reports/department-productivity")).data,
   leaveTrends: async () => (await client.get("/reports/leave-trends")).data,
   performance: async () => (await client.get("/reports/performance")).data
+};
+
+export const notificationApi = {
+  list: async (params) => (await client.get("/notifications", { params })).data,
+  markRead: async (id) => (await client.patch(`/notifications/${id}/read`)).data,
+  markAllRead: async () => (await client.patch("/notifications/read-all")).data
 };

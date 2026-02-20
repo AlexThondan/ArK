@@ -37,6 +37,14 @@ const leaveSchema = new mongoose.Schema(
       required: true,
       trim: true
     },
+    handoverNotes: {
+      type: String,
+      trim: true
+    },
+    contactDuringLeave: {
+      type: String,
+      trim: true
+    },
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],

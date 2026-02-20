@@ -1,19 +1,26 @@
 import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import { Pencil, Power, PowerOff, UserPlus } from "lucide-react";
 import { employeeApi } from "../../api/hrmsApi";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import ErrorState from "../../components/common/ErrorState";
 import FormModal from "../../components/common/FormModal";
+import StatusBadge from "../../components/common/StatusBadge";
 import { formatCurrency, formatDate } from "../../utils/format";
 
 const initialForm = {
+  employeeId: "",
   email: "",
   password: "",
   firstName: "",
   lastName: "",
+  phone: "",
   department: "",
   designation: "",
   salary: "",
+  joinDate: "",
+  workMode: "onsite",
+  employmentType: "full-time",
   role: "employee"
 };
 
@@ -64,9 +71,13 @@ const AdminEmployeesPage = () => {
     if (!editing) return;
     try {
       await employeeApi.update(editing.user._id, {
+        employeeId: editing.employeeId,
+        phone: editing.phone,
         department: editing.department,
         designation: editing.designation,
         salary: Number(editing.salary || 0),
+        workMode: editing.workMode,
+        employmentType: editing.employmentType,
         role: editing.user.role,
         isActive: editing.user.isActive
       });
@@ -78,10 +89,10 @@ const AdminEmployeesPage = () => {
     }
   };
 
-  const deactivate = async (userId) => {
+  const toggleActive = async (row) => {
     try {
-      await employeeApi.remove(userId);
-      toast.success("Employee deactivated");
+      await employeeApi.update(row.user?._id, { isActive: !row.user?.isActive });
+      toast.success(row.user?.isActive ? "Employee deactivated" : "Employee activated");
       loadData();
     } catch (error) {
       toast.error(error.message);
@@ -96,6 +107,7 @@ const AdminEmployeesPage = () => {
       <header className="page-head">
         <h1>Employee Management</h1>
         <button className="btn btn-primary" type="button" onClick={() => setShowCreate(true)}>
+          <UserPlus size={14} />
           Add Employee
         </button>
       </header>
@@ -109,10 +121,12 @@ const AdminEmployeesPage = () => {
             <thead>
               <tr>
                 <th>Name</th>
+                <th>Employee ID</th>
                 <th>Email</th>
                 <th>Role</th>
                 <th>Department</th>
                 <th>Designation</th>
+                <th>Mode</th>
                 <th>Salary</th>
                 <th>Joined</th>
                 <th>Status</th>
@@ -123,19 +137,29 @@ const AdminEmployeesPage = () => {
               {state.rows.map((row) => (
                 <tr key={row.user?._id || row._id}>
                   <td>{`${row.firstName} ${row.lastName}`}</td>
+                  <td>{row.employeeId || "-"}</td>
                   <td>{row.user?.email}</td>
                   <td>{row.user?.role}</td>
                   <td>{row.department}</td>
                   <td>{row.designation}</td>
+                  <td>{row.workMode || "-"}</td>
                   <td>{formatCurrency(row.salary)}</td>
                   <td>{formatDate(row.joinDate)}</td>
-                  <td>{row.user?.isActive ? "Active" : "Inactive"}</td>
+                  <td>
+                    <StatusBadge status={row.user?.isActive ? "active" : "inactive"} />
+                  </td>
                   <td className="button-row">
                     <button className="btn btn-outline" type="button" onClick={() => setEditing(row)}>
+                      <Pencil size={14} />
                       Edit
                     </button>
-                    <button className="btn btn-danger" type="button" onClick={() => deactivate(row.user?._id)}>
-                      Deactivate
+                    <button
+                      className={row.user?.isActive ? "btn btn-danger" : "btn btn-primary"}
+                      type="button"
+                      onClick={() => toggleActive(row)}
+                    >
+                      {row.user?.isActive ? <PowerOff size={14} /> : <Power size={14} />}
+                      {row.user?.isActive ? "Deactivate" : "Activate"}
                     </button>
                   </td>
                 </tr>
@@ -167,6 +191,14 @@ const AdminEmployeesPage = () => {
 
       <FormModal title="Add Employee" open={showCreate} onClose={() => setShowCreate(false)}>
         <form className="form-grid" onSubmit={handleCreate}>
+          <label>
+            Employee ID
+            <input
+              value={form.employeeId}
+              onChange={(event) => setForm((prev) => ({ ...prev, employeeId: event.target.value }))}
+              placeholder="ARK-0001"
+            />
+          </label>
           <label>
             Work Email
             <input
@@ -203,11 +235,20 @@ const AdminEmployeesPage = () => {
           </label>
           <label>
             Department
-            <input
-              required
+            <select
               value={form.department}
               onChange={(event) => setForm((prev) => ({ ...prev, department: event.target.value }))}
-            />
+              required
+            >
+              <option value="">Select department</option>
+              <option value="Engineering">Engineering</option>
+              <option value="Design">Design</option>
+              <option value="Product">Product</option>
+              <option value="HR">HR</option>
+              <option value="Finance">Finance</option>
+              <option value="Sales">Sales</option>
+              <option value="Operations">Operations</option>
+            </select>
           </label>
           <label>
             Designation
@@ -224,6 +265,44 @@ const AdminEmployeesPage = () => {
               value={form.salary}
               onChange={(event) => setForm((prev) => ({ ...prev, salary: event.target.value }))}
             />
+          </label>
+          <label>
+            Phone
+            <input
+              value={form.phone}
+              onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
+            />
+          </label>
+          <label>
+            Join Date
+            <input
+              type="date"
+              value={form.joinDate}
+              onChange={(event) => setForm((prev) => ({ ...prev, joinDate: event.target.value }))}
+            />
+          </label>
+          <label>
+            Work Mode
+            <select
+              value={form.workMode}
+              onChange={(event) => setForm((prev) => ({ ...prev, workMode: event.target.value }))}
+            >
+              <option value="onsite">Onsite</option>
+              <option value="hybrid">Hybrid</option>
+              <option value="remote">Remote</option>
+            </select>
+          </label>
+          <label>
+            Employment Type
+            <select
+              value={form.employmentType}
+              onChange={(event) => setForm((prev) => ({ ...prev, employmentType: event.target.value }))}
+            >
+              <option value="full-time">Full-time</option>
+              <option value="part-time">Part-time</option>
+              <option value="contract">Contract</option>
+              <option value="intern">Intern</option>
+            </select>
           </label>
           <label>
             Role
@@ -245,6 +324,20 @@ const AdminEmployeesPage = () => {
         {editing ? (
           <form className="form-grid" onSubmit={handleUpdate}>
             <label>
+              Employee ID
+              <input
+                value={editing.employeeId || ""}
+                onChange={(event) => setEditing((prev) => ({ ...prev, employeeId: event.target.value }))}
+              />
+            </label>
+            <label>
+              Phone
+              <input
+                value={editing.phone || ""}
+                onChange={(event) => setEditing((prev) => ({ ...prev, phone: event.target.value }))}
+              />
+            </label>
+            <label>
               Department
               <input
                 value={editing.department || ""}
@@ -265,6 +358,29 @@ const AdminEmployeesPage = () => {
                 value={editing.salary || ""}
                 onChange={(event) => setEditing((prev) => ({ ...prev, salary: event.target.value }))}
               />
+            </label>
+            <label>
+              Work Mode
+              <select
+                value={editing.workMode || "onsite"}
+                onChange={(event) => setEditing((prev) => ({ ...prev, workMode: event.target.value }))}
+              >
+                <option value="onsite">Onsite</option>
+                <option value="hybrid">Hybrid</option>
+                <option value="remote">Remote</option>
+              </select>
+            </label>
+            <label>
+              Employment Type
+              <select
+                value={editing.employmentType || "full-time"}
+                onChange={(event) => setEditing((prev) => ({ ...prev, employmentType: event.target.value }))}
+              >
+                <option value="full-time">Full-time</option>
+                <option value="part-time">Part-time</option>
+                <option value="contract">Contract</option>
+                <option value="intern">Intern</option>
+              </select>
             </label>
             <label>
               Role

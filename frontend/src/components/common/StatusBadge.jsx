@@ -10,9 +10,14 @@ const statusColorMap = {
   blocked: "danger",
   todo: "neutral",
   active: "success",
+  inactive: "danger",
+  prospect: "warning",
   planning: "info",
   "on-hold": "warning",
-  completed: "success"
+  completed: "success",
+  private: "neutral",
+  shared: "info",
+  "hr-only": "warning"
 };
 
 const StatusBadge = ({ status }) => {

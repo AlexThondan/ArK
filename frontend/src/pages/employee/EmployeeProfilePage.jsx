@@ -3,13 +3,16 @@ import toast from "react-hot-toast";
 import { employeeApi } from "../../api/hrmsApi";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import ErrorState from "../../components/common/ErrorState";
+import useAuth from "../../hooks/useAuth";
 import { resolveFileUrl } from "../../utils/format";
 
 const EmployeeProfilePage = () => {
+  const { refreshMe } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [profile, setProfile] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [avatarVersion, setAvatarVersion] = useState(Date.now());
 
   const loadProfile = useCallback(async () => {
     try {
@@ -37,6 +40,10 @@ const EmployeeProfilePage = () => {
         lastName: profile.lastName,
         phone: profile.phone,
         gender: profile.gender,
+        workMode: profile.workMode,
+        employmentType: profile.employmentType,
+        emergencyContact: profile.emergencyContact,
+        bio: profile.bio,
         skills: profile.skills || [],
         certifications: profile.certifications || []
       });
@@ -54,6 +61,8 @@ const EmployeeProfilePage = () => {
     try {
       const response = await employeeApi.updateAvatar(file);
       setProfile((prev) => ({ ...prev, avatarUrl: response.avatarUrl }));
+      setAvatarVersion(Date.now());
+      await refreshMe();
       toast.success("Avatar updated");
     } catch (err) {
       toast.error(err.message);
@@ -66,12 +75,19 @@ const EmployeeProfilePage = () => {
   return (
     <section className="page-grid">
       <header className="page-head">
-        <h1>Profile Management</h1>
+        <div>
+          <h1>Profile Management</h1>
+          {profile?.employeeId ? <p className="muted">Employee ID: {profile.employeeId}</p> : null}
+        </div>
       </header>
 
       <div className="card profile-card">
         <div className="profile-avatar">
-          {profile.avatarUrl ? <img src={resolveFileUrl(profile.avatarUrl)} alt="Profile avatar" /> : <span>Avatar</span>}
+          {profile.avatarUrl ? (
+            <img src={`${resolveFileUrl(profile.avatarUrl)}?v=${avatarVersion}`} alt="Profile avatar" />
+          ) : (
+            <span>{`${profile.firstName?.[0] || ""}${profile.lastName?.[0] || ""}` || "A"}</span>
+          )}
         </div>
         <label className="btn btn-outline">
           Upload Picture
@@ -116,6 +132,29 @@ const EmployeeProfilePage = () => {
             <option value="prefer-not-to-say">Prefer not to say</option>
           </select>
         </label>
+        <label>
+          Work Mode
+          <select
+            value={profile.workMode || "onsite"}
+            onChange={(event) => setProfile((prev) => ({ ...prev, workMode: event.target.value }))}
+          >
+            <option value="onsite">Onsite</option>
+            <option value="hybrid">Hybrid</option>
+            <option value="remote">Remote</option>
+          </select>
+        </label>
+        <label>
+          Employment Type
+          <select
+            value={profile.employmentType || "full-time"}
+            onChange={(event) => setProfile((prev) => ({ ...prev, employmentType: event.target.value }))}
+          >
+            <option value="full-time">Full-time</option>
+            <option value="part-time">Part-time</option>
+            <option value="contract">Contract</option>
+            <option value="intern">Intern</option>
+          </select>
+        </label>
 
         <label className="full-width">
           Skills (comma separated)
@@ -130,6 +169,51 @@ const EmployeeProfilePage = () => {
                   .filter(Boolean)
               }))
             }
+          />
+        </label>
+
+        <label>
+          Emergency Contact Name
+          <input
+            value={profile.emergencyContact?.name || ""}
+            onChange={(event) =>
+              setProfile((prev) => ({
+                ...prev,
+                emergencyContact: { ...(prev.emergencyContact || {}), name: event.target.value }
+              }))
+            }
+          />
+        </label>
+        <label>
+          Emergency Contact Relation
+          <input
+            value={profile.emergencyContact?.relation || ""}
+            onChange={(event) =>
+              setProfile((prev) => ({
+                ...prev,
+                emergencyContact: { ...(prev.emergencyContact || {}), relation: event.target.value }
+              }))
+            }
+          />
+        </label>
+        <label>
+          Emergency Contact Phone
+          <input
+            value={profile.emergencyContact?.phone || ""}
+            onChange={(event) =>
+              setProfile((prev) => ({
+                ...prev,
+                emergencyContact: { ...(prev.emergencyContact || {}), phone: event.target.value }
+              }))
+            }
+          />
+        </label>
+
+        <label className="full-width">
+          Professional Bio
+          <textarea
+            value={profile.bio || ""}
+            onChange={(event) => setProfile((prev) => ({ ...prev, bio: event.target.value }))}
           />
         </label>
 

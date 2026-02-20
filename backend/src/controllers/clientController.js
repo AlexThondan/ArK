@@ -14,7 +14,10 @@ const createClient = asyncHandler(async (req, res) => {
     throw new ApiError(400, "name and company are required");
   }
 
-  const client = await Client.create(req.body);
+  const client = await Client.create({
+    ...req.body,
+    contractValue: Number(req.body.contractValue || 0)
+  });
   res.status(201).json({
     success: true,
     data: client
@@ -27,14 +30,16 @@ const createClient = asyncHandler(async (req, res) => {
  * @access Private
  */
 const getClients = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 20, search } = req.query;
+  const { page = 1, limit = 20, search, status } = req.query;
   const { skip, limit: parsedLimit, page: parsedPage } = buildPagination(page, limit);
   const filter = {};
+  if (status) filter.status = status;
   if (search) {
     filter.$or = [
       { name: { $regex: search, $options: "i" } },
       { company: { $regex: search, $options: "i" } },
-      { email: { $regex: search, $options: "i" } }
+      { email: { $regex: search, $options: "i" } },
+      { industry: { $regex: search, $options: "i" } }
     ];
   }
 
@@ -77,7 +82,14 @@ const getClientById = asyncHandler(async (req, res) => {
  * @access Admin
  */
 const updateClient = asyncHandler(async (req, res) => {
-  const client = await Client.findByIdAndUpdate(req.params.id, req.body, {
+  const payload = {
+    ...req.body
+  };
+  if (typeof req.body.contractValue !== "undefined") {
+    payload.contractValue = Number(req.body.contractValue || 0);
+  }
+
+  const client = await Client.findByIdAndUpdate(req.params.id, payload, {
     new: true,
     runValidators: true
   });

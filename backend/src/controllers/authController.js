@@ -5,6 +5,21 @@ const asyncHandler = require("../utils/asyncHandler");
 const { signToken } = require("../utils/jwt");
 const { loadEnv } = require("../config/env");
 
+const generateEmployeeId = async () => {
+  let employeeId = "";
+  let exists = true;
+
+  while (exists) {
+    const stamp = Date.now().toString().slice(-6);
+    const random = Math.random().toString(36).toUpperCase().slice(2, 5);
+    employeeId = `ARK-${stamp}${random}`;
+    // eslint-disable-next-line no-await-in-loop
+    exists = Boolean(await Employee.findOne({ employeeId }).select("_id").lean());
+  }
+
+  return employeeId;
+};
+
 const sanitizeUser = (userDoc) => ({
   id: userDoc._id,
   email: userDoc.email,
@@ -95,7 +110,13 @@ const registerAdmin = asyncHandler(async (req, res) => {
  * @access Private
  */
 const getMe = asyncHandler(async (req, res) => {
-  const profile = await Employee.findOne({ user: req.user._id }).lean();
+  let profile = await Employee.findOne({ user: req.user._id }).lean();
+  if (profile && !profile.employeeId) {
+    const employeeId = await generateEmployeeId();
+    await Employee.findByIdAndUpdate(profile._id, { employeeId });
+    profile = { ...profile, employeeId };
+  }
+
   res.status(200).json({
     success: true,
     user: sanitizeUser(req.user),

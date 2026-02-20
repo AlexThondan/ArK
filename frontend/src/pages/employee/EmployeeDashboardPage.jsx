@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Clock3, Hourglass, WalletCards } from "lucide-react";
+import { CalendarClock, CheckCircle2, Clock3, Hourglass, WalletCards } from "lucide-react";
 import { dashboardApi } from "../../api/hrmsApi";
 import KpiCard from "../../components/common/KpiCard";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
@@ -7,7 +7,7 @@ import ErrorState from "../../components/common/ErrorState";
 import LineTrendChart from "../../components/charts/LineTrendChart";
 import DonutLeaveChart from "../../components/charts/DonutLeaveChart";
 import DataTable from "../../components/common/DataTable";
-import { formatDate, formatDateTime, formatDuration } from "../../utils/format";
+import { formatCurrency, formatDate, formatDateTime, formatDuration } from "../../utils/format";
 
 const EmployeeDashboardPage = () => {
   const [state, setState] = useState({ loading: true, error: "", data: null });
@@ -44,10 +44,15 @@ const EmployeeDashboardPage = () => {
     duration: Number((row.workDurationMinutes / 60).toFixed(2))
   }));
 
+  const leaveSummary = state.data?.leaveSummary || {};
+
   return (
     <section className="page-grid">
       <header className="page-head">
-        <h1>{state.data?.welcome || "Employee Dashboard"}</h1>
+        <div>
+          <h1>{state.data?.welcome || "Employee Dashboard"}</h1>
+          {state.data?.employeeId ? <p className="muted">Employee ID: {state.data.employeeId}</p> : null}
+        </div>
       </header>
 
       <div className="kpi-grid">
@@ -62,12 +67,33 @@ const EmployeeDashboardPage = () => {
         <KpiCard title="Annual Leave Left" value={state.data?.leaveBalance?.annual || 0} icon={WalletCards} />
       </div>
 
+      <div className="kpi-grid">
+        <KpiCard
+          title="Approved Leaves"
+          value={leaveSummary.approved?.count || 0}
+          subtitle={`${leaveSummary.approved?.days || 0} day(s) used`}
+          icon={CalendarClock}
+        />
+        <KpiCard
+          title="Pending Leave Requests"
+          value={leaveSummary.pending?.count || 0}
+          subtitle="Requests awaiting response"
+          icon={Hourglass}
+        />
+        <KpiCard
+          title="Monthly Net Pay"
+          value={formatCurrency(state.data?.payroll?.netPay || 0)}
+          subtitle={`Payout day: ${state.data?.payroll?.payoutDay || 25}`}
+          icon={WalletCards}
+        />
+      </div>
+
       <div className="panel-grid two">
         <LineTrendChart
           title="Attendance Summary"
           data={attendanceTrend}
           xKey="date"
-          lines={[{ dataKey: "duration", color: "#2563EB" }]}
+          lines={[{ dataKey: "duration", color: "#1877F2" }]}
         />
         <DonutLeaveChart title="Leave Balance" data={leaveChartData} />
       </div>
@@ -86,6 +112,26 @@ const EmployeeDashboardPage = () => {
             { key: "progress", label: "Progress", render: (value) => `${value || 0}%` }
           ]}
         />
+      </section>
+
+      <section className="card gradient-card">
+        <div className="card-head">
+          <h3>Payroll Snapshot</h3>
+        </div>
+        <div className="payroll-grid">
+          <div>
+            <small className="muted">Monthly Gross</small>
+            <h2>{formatCurrency(state.data?.payroll?.monthlyGross || 0)}</h2>
+          </div>
+          <div>
+            <small className="muted">Estimated Deductions</small>
+            <h2>{formatCurrency(state.data?.payroll?.deductions || 0)}</h2>
+          </div>
+          <div>
+            <small className="muted">Take Home</small>
+            <h2>{formatCurrency(state.data?.payroll?.netPay || 0)}</h2>
+          </div>
+        </div>
       </section>
 
       <section className="card">

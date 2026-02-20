@@ -2,6 +2,14 @@ const mongoose = require("mongoose");
 
 const employeeSchema = new mongoose.Schema(
   {
+    employeeId: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      unique: true,
+      sparse: true,
+      index: true
+    },
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -51,6 +59,25 @@ const employeeSchema = new mongoose.Schema(
     manager: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User"
+    },
+    workMode: {
+      type: String,
+      enum: ["onsite", "hybrid", "remote"],
+      default: "onsite"
+    },
+    employmentType: {
+      type: String,
+      enum: ["full-time", "part-time", "contract", "intern"],
+      default: "full-time"
+    },
+    emergencyContact: {
+      name: String,
+      relation: String,
+      phone: String
+    },
+    bio: {
+      type: String,
+      trim: true
     },
     address: {
       line1: String,

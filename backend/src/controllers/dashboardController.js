@@ -54,12 +54,19 @@ const getEmployeeDashboard = asyncHandler(async (req, res) => {
     success: true,
     data: {
       welcome: profile ? `Welcome back, ${profile.firstName}` : "Welcome back",
+      employeeId: profile?.employeeId || "",
       taskSummary: {
         pending: taskSummary.todo + taskSummary["in-progress"] + taskSummary.blocked,
         completed: taskSummary.done,
         breakdown: taskSummary
       },
       leaveBalance: profile?.leaveBalance || { annual: 0, sick: 0, casual: 0 },
+      payroll: {
+        monthlyGross: Number(profile?.salary || 0),
+        deductions: Math.round(Number(profile?.salary || 0) * 0.12),
+        netPay: Math.round(Number(profile?.salary || 0) * 0.88),
+        payoutDay: 25
+      },
       attendanceHistory,
       leaveSummary,
       recentTasks
@@ -80,7 +87,7 @@ const getAdminDashboard = asyncHandler(async (_req, res) => {
   const dateBoundary7 = startOfUtcDay(sevenDaysAgo);
   const dateBoundary30 = startOfUtcDay(thirtyDaysAgo);
 
-  const [totalEmployees, activeProjects, pendingLeaves, attendanceRows, taskPerfRows, overtimeRows] =
+  const [totalEmployees, activeProjects, pendingLeaves, attendanceRows, taskPerfRows, overtimeRows, payrollRows] =
     await Promise.all([
       User.countDocuments({ role: "employee", isActive: true }),
       Project.countDocuments({ status: { $in: ["planning", "active", "on-hold"] } }),
@@ -125,6 +132,27 @@ const getAdminDashboard = asyncHandler(async (_req, res) => {
             latePresenceVariance: { $stdDevPop: "$workDurationMinutes" }
           }
         }
+      ]),
+      Employee.aggregate([
+        {
+          $lookup: {
+            from: "users",
+            localField: "user",
+            foreignField: "_id",
+            as: "user"
+          }
+        },
+        { $unwind: "$user" },
+        { $match: { "user.isActive": true } },
+        {
+          $group: {
+            _id: "$department",
+            totalSalary: { $sum: "$salary" },
+            headcount: { $sum: 1 },
+            avgSalary: { $avg: "$salary" }
+          }
+        },
+        { $sort: { totalSalary: -1 } }
       ])
     ]);
 
@@ -167,17 +195,27 @@ const getAdminDashboard = asyncHandler(async (_req, res) => {
     totalEmployees
   }));
 
+  const totalMonthlyPayroll = payrollRows.reduce((sum, row) => sum + Number(row.totalSalary || 0), 0);
+  const payrollByDepartment = payrollRows.map((row) => ({
+    department: row._id || "Unassigned",
+    totalSalary: Math.round(Number(row.totalSalary || 0)),
+    avgSalary: Math.round(Number(row.avgSalary || 0)),
+    headcount: row.headcount
+  }));
+
   res.status(200).json({
     success: true,
     data: {
       kpis: {
         totalEmployees,
         activeProjects,
-        pendingLeaves
+        pendingLeaves,
+        totalMonthlyPayroll
       },
       attendanceRateChart,
       performanceInsights,
-      overtimeSummary
+      overtimeSummary,
+      payrollByDepartment
     }
   });
 });

@@ -4,7 +4,23 @@ const ApiError = require("../utils/ApiError");
 const asyncHandler = require("../utils/asyncHandler");
 const { buildPagination } = require("../utils/pagination");
 
+const generateEmployeeId = async () => {
+  let employeeId = "";
+  let exists = true;
+
+  while (exists) {
+    const stamp = Date.now().toString().slice(-6);
+    const random = Math.random().toString(36).toUpperCase().slice(2, 5);
+    employeeId = `ARK-${stamp}${random}`;
+    // eslint-disable-next-line no-await-in-loop
+    exists = Boolean(await Employee.findOne({ employeeId }).select("_id").lean());
+  }
+
+  return employeeId;
+};
+
 const pickProfilePayload = (body) => ({
+  employeeId: body.employeeId,
   firstName: body.firstName,
   lastName: body.lastName,
   phone: body.phone,
@@ -15,6 +31,10 @@ const pickProfilePayload = (body) => ({
   salary: body.salary,
   joinDate: body.joinDate,
   manager: body.manager,
+  workMode: body.workMode,
+  employmentType: body.employmentType,
+  emergencyContact: body.emergencyContact,
+  bio: body.bio,
   address: body.address,
   skills: body.skills,
   certifications: body.certifications,
@@ -56,6 +76,12 @@ const createEmployee = asyncHandler(async (req, res) => {
   });
 
   try {
+    if (!profilePayload.employeeId) {
+      profilePayload.employeeId = await generateEmployeeId();
+    } else {
+      profilePayload.employeeId = profilePayload.employeeId.toString().trim().toUpperCase();
+    }
+
     const employee = await Employee.create({
       user: user._id,
       ...profilePayload
@@ -116,6 +142,7 @@ const getEmployees = asyncHandler(async (req, res) => {
     { $match: matchUser },
     {
       $project: {
+        employeeId: 1,
         firstName: 1,
         lastName: 1,
         phone: 1,
@@ -123,6 +150,8 @@ const getEmployees = asyncHandler(async (req, res) => {
         designation: 1,
         salary: 1,
         joinDate: 1,
+        workMode: 1,
+        employmentType: 1,
         skills: 1,
         leaveBalance: 1,
         "user._id": 1,
@@ -166,6 +195,11 @@ const getEmployeeById = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Employee not found");
   }
 
+  if (!employee.employeeId) {
+    employee.employeeId = await generateEmployeeId();
+    await employee.save();
+  }
+
   res.status(200).json({
     success: true,
     data: employee
@@ -187,6 +221,12 @@ const updateEmployee = asyncHandler(async (req, res) => {
   Object.keys(profilePayload).forEach((key) => {
     if (typeof profilePayload[key] !== "undefined") employee[key] = profilePayload[key];
   });
+
+  if (profilePayload.employeeId) {
+    employee.employeeId = profilePayload.employeeId.toString().trim().toUpperCase();
+  } else if (!employee.employeeId) {
+    employee.employeeId = await generateEmployeeId();
+  }
 
   await employee.save();
 
@@ -237,6 +277,11 @@ const getMyProfile = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Profile not found");
   }
 
+  if (!profile.employeeId) {
+    profile.employeeId = await generateEmployeeId();
+    await profile.save();
+  }
+
   res.status(200).json({
     success: true,
     data: profile
@@ -254,7 +299,20 @@ const updateMyProfile = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Profile not found");
   }
 
-  const allowedFields = ["firstName", "lastName", "phone", "dob", "gender", "address", "skills", "certifications"];
+  const allowedFields = [
+    "firstName",
+    "lastName",
+    "phone",
+    "dob",
+    "gender",
+    "workMode",
+    "employmentType",
+    "emergencyContact",
+    "bio",
+    "address",
+    "skills",
+    "certifications"
+  ];
   allowedFields.forEach((field) => {
     if (typeof req.body[field] !== "undefined") {
       profile[field] = req.body[field];

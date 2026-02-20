@@ -16,9 +16,35 @@ const documentSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["resume", "certificate", "task-doc", "profile-image", "other"],
+      enum: [
+        "resume",
+        "certificate",
+        "task-doc",
+        "profile-image",
+        "id-proof",
+        "payroll",
+        "policy",
+        "other"
+      ],
       default: "other",
       index: true
+    },
+    category: {
+      type: String,
+      trim: true
+    },
+    description: {
+      type: String,
+      trim: true
+    },
+    tags: [
+      {
+        type: String,
+        trim: true
+      }
+    ],
+    expiresOn: {
+      type: Date
     },
     filename: {
       type: String,
@@ -48,5 +74,6 @@ const documentSchema = new mongoose.Schema(
 );
 
 documentSchema.index({ user: 1, type: 1, createdAt: -1 });
+documentSchema.index({ user: 1, category: 1, expiresOn: 1 });
 
 module.exports = mongoose.model("Document", documentSchema);
