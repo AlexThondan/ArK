@@ -1,16 +1,24 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Check, CircleUserRound, LockKeyhole, Mail } from "lucide-react";
+import { Apple, Chrome, Facebook, Instagram, Twitter } from "lucide-react";
 import useAuth from "../../hooks/useAuth";
 import arkLogo from "../../assets/ark-logo.svg";
 
 const LoginPage = () => {
   const navigate = useNavigate();
   const { login, isAuthenticated, user } = useAuth();
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [remember, setRemember] = useState(true);
+
+  const socialProviders = [
+    { id: "google", label: "Google", icon: <Chrome size={16} />, url: "https://accounts.google.com" },
+    { id: "facebook", label: "Facebook", icon: <Facebook size={16} />, url: "https://www.facebook.com/login" },
+    { id: "instagram", label: "Instagram", icon: <Instagram size={16} />, url: "https://www.instagram.com/accounts/login" },
+    { id: "x", label: "X.com", icon: <Twitter size={16} />, url: "https://x.com/i/flow/login" },
+    { id: "apple", label: "Apple", icon: <Apple size={16} />, url: "https://appleid.apple.com/sign-in" }
+  ];
 
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -31,74 +39,86 @@ const LoginPage = () => {
     }
   };
 
+  const onSocialClick = (url) => {
+    window.location.href = url;
+  };
+
   return (
-    <div className="auth-wave-page">
-      <section className="auth-wave-hero">
-        <div className="auth-wave-nav">
-          <div className="auth-wave-brand">
-            <img src={arkLogo} alt="ArK" />
-            <strong>ArK</strong>
-          </div>
-        </div>
-        <div className="auth-wave-copy">
+    <div className="auth-ref-page">
+      <section className="auth-ref-hero">
+        <div className="auth-ref-copy">
+          <img className="auth-ref-copy-logo" src={arkLogo} alt="ArK" />
           <h1>Welcome!</h1>
-          <p>Use your company credentials to access your workspace.</p>
+          <p>Use these awesome forms to login or create new account in your project for free.</p>
         </div>
       </section>
-      <section className="auth-wave-bottom" />
+      <section className="auth-ref-bottom" />
 
-      <form className="auth-wave-card" onSubmit={onSubmit}>
-        <div className="auth-wave-logo">
-          <img src={arkLogo} alt="ArK" />
-          <h2>ArK</h2>
+      <form className="auth-ref-card" onSubmit={onSubmit}>
+        <h3>Login with</h3>
+        <div className="auth-ref-socials">
+          {socialProviders.map((provider) => (
+            <button
+              key={provider.id}
+              type="button"
+              className={`auth-ref-social-btn ${provider.id}`}
+              aria-label={provider.label}
+              onClick={() => onSocialClick(provider.url)}
+            >
+              {provider.icon}
+            </button>
+          ))}
         </div>
+        <p className="auth-ref-or">or</p>
 
-        <div className="auth-wave-title">
-          <CircleUserRound size={16} />
-          <strong>Sign in</strong>
-        </div>
+        <label htmlFor="name">Name</label>
+        <input
+          id="name"
+          type="text"
+          placeholder="Your full name"
+          value={form.name}
+          onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+        />
 
         <label htmlFor="email">Email</label>
-        <div className="auth-input-wrap">
-          <Mail size={14} />
-          <input
-            id="email"
-            type="email"
-            placeholder="you@company.com"
-            value={form.email}
-            onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
-            required
-          />
-        </div>
+        <input
+          id="email"
+          type="email"
+          placeholder="Your email address"
+          value={form.email}
+          onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
+          required
+        />
 
         <label htmlFor="password">Password</label>
-        <div className="auth-input-wrap">
-          <LockKeyhole size={14} />
-          <input
-            id="password"
-            type="password"
-            placeholder="Enter password"
-            value={form.password}
-            onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
-            required
-          />
-        </div>
+        <input
+          id="password"
+          type="password"
+          placeholder="Your password"
+          value={form.password}
+          onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
+          required
+        />
 
-        <label className="switch-row">
+        <label className="auth-ref-remember">
           <button
-            className={`switch-btn ${remember ? "on" : ""}`}
+            className={`auth-ref-switch ${remember ? "on" : ""}`}
             type="button"
             onClick={() => setRemember((prev) => !prev)}
             aria-label="Remember me"
           >
-            {remember ? <Check size={11} /> : null}
+            <span />
           </button>
-          Remember me
+          <span>Remember me</span>
         </label>
 
-        <button className="btn btn-primary auth-submit" type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Signing in..." : "Login"}
+        <button className="auth-ref-submit" type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "SIGNING IN..." : "SIGN IN"}
         </button>
+
+        <p className="auth-ref-footer">
+          Already have an account? <span>Sign in</span>
+        </p>
       </form>
     </div>
   );

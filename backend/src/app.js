@@ -19,6 +19,7 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const teamRoutes = require("./routes/teamRoutes");
 
 const app = express();
+const uploadDir = path.resolve(__dirname, "..", "uploads");
 
 app.use(helmet());
 app.use(
@@ -41,7 +42,15 @@ app.use(
   })
 );
 
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    // Allow frontend app origin to render uploaded files (avatars/logos/docs previews).
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    next();
+  },
+  express.static(uploadDir)
+);
 
 app.get("/api/health", (_req, res) => {
   res.status(200).json({ success: true, message: "HRMS API healthy" });

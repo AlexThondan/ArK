@@ -3,7 +3,7 @@ import { dashboardApi, employeeApi } from "../../api/hrmsApi";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import ErrorState from "../../components/common/ErrorState";
 import LineTrendChart from "../../components/charts/LineTrendChart";
-import BarMetricsChart from "../../components/charts/BarMetricsChart";
+import DonutLeaveChart from "../../components/charts/DonutLeaveChart";
 import DataTable from "../../components/common/DataTable";
 import useAuth from "../../hooks/useAuth";
 import { formatCurrency, formatDate, resolveFileUrl } from "../../utils/format";
@@ -16,6 +16,9 @@ const AdminDashboardPage = () => {
     data: null,
     employees: []
   });
+  const [expandedKpis, setExpandedKpis] = useState({});
+  const [expandedPulseCards, setExpandedPulseCards] = useState({});
+  const [expandedStats, setExpandedStats] = useState({});
 
   const loadData = useCallback(async () => {
     try {
@@ -78,6 +81,10 @@ const AdminDashboardPage = () => {
   );
 
   const kpis = state.data?.kpis || {};
+  const departmentCount = useMemo(
+    () => new Set((state.employees || []).map((employee) => employee.department).filter(Boolean)).size,
+    [state.employees]
+  );
 
   const totalTasks = useMemo(
     () => (state.data?.performanceInsights || []).reduce((sum, item) => sum + Number(item.totalTasks || 0), 0),
@@ -90,12 +97,51 @@ const AdminDashboardPage = () => {
   );
 
   const completionRate = totalTasks ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  const pendingTasks = Math.max(totalTasks - completedTasks, 0);
+  const avgTaskLoad = kpis.totalEmployees ? (totalTasks / kpis.totalEmployees).toFixed(1) : "0.0";
+  const highRiskCount = (state.data?.overtimeSummary || []).filter((row) => row.burnoutRisk === "high").length;
+
+  const graphsAnalysisData = useMemo(() => {
+    const departmentMix = (state.data?.payrollByDepartment || [])
+      .filter((row) => Number(row.headcount || 0) > 0)
+      .slice(0, 6)
+      .map((row) => ({ name: row.department || "Unassigned", value: Number(row.headcount || 0) }));
+
+    if (departmentMix.length) return departmentMix;
+
+    return [
+      { name: "Employees", value: Number(kpis.totalEmployees || 0) },
+      { name: "Projects", value: Number(kpis.activeProjects || 0) },
+      { name: "Pending Leaves", value: Number(kpis.pendingLeaves || 0) },
+      { name: "Tasks", value: Number(totalTasks || 0) }
+    ].filter((item) => item.value > 0);
+  }, [state.data?.payrollByDepartment, kpis.activeProjects, kpis.pendingLeaves, kpis.totalEmployees, totalTasks]);
+
+  const attendanceTrendData = useMemo(() => {
+    const rows = state.data?.attendanceRateChart || [];
+    return rows.map((row, index) => {
+      const windowRows = rows.slice(Math.max(0, index - 2), index + 1);
+      const movingAvg = windowRows.length
+        ? Math.round(windowRows.reduce((sum, item) => sum + Number(item.rate || 0), 0) / windowRows.length)
+        : Number(row.rate || 0);
+      return {
+        ...row,
+        rate: Number(row.rate || 0),
+        movingAvg,
+        target: 90
+      };
+    });
+  }, [state.data?.attendanceRateChart]);
+
+  const toggleMapCard = (setter, key) => {
+    setter((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   if (state.loading) return <LoadingSpinner label="Loading admin dashboard..." />;
   if (state.error) return <ErrorState message={state.error} onRetry={loadData} />;
 
   return (
-    <section className="page-grid sequence-dashboard">
+    <section className="page-grid sequence-dashboard dashboard-modern">
       <header className="card sequence-header">
         <div className="sequence-user">
           <div className="avatar-cell medium">
@@ -109,7 +155,7 @@ const AdminDashboardPage = () => {
             )}
           </div>
           <div>
-            <h2>Hey, Manager</h2>
+            <h2>Manager Workspace</h2>
             <p className="muted">{todayLabel}</p>
           </div>
         </div>
@@ -126,21 +172,85 @@ const AdminDashboardPage = () => {
       </section>
 
       <section className="sequence-kpi-grid">
-        <article className="card sequence-kpi">
+        <article className="card sequence-kpi modern-kpi-card accent-blue">
+          <button className="box-expand-btn" type="button" onClick={() => toggleMapCard(setExpandedKpis, "employees")}>
+            {expandedKpis.employees ? "Hide" : "Insights"}
+          </button>
           <small>Active Employees</small>
           <h3>{kpis.totalEmployees || 0}</h3>
+          <div className="kpi-visual kpi-bars">
+            <span style={{ height: "34%" }} />
+            <span style={{ height: "48%" }} />
+            <span style={{ height: "68%" }} />
+            <span style={{ height: "84%" }} />
+          </div>
+          {expandedKpis.employees ? (
+            <div className="box-insights">
+              <span>Departments: {departmentCount}</span>
+              <span>Top 8 shown in Team Pulse</span>
+              <span>High burnout risk: {highRiskCount}</span>
+            </div>
+          ) : null}
         </article>
-        <article className="card sequence-kpi">
+        <article className="card sequence-kpi modern-kpi-card accent-green">
+          <button className="box-expand-btn" type="button" onClick={() => toggleMapCard(setExpandedKpis, "projects")}>
+            {expandedKpis.projects ? "Hide" : "Insights"}
+          </button>
           <small>Number of Projects</small>
           <h3>{kpis.activeProjects || 0}</h3>
+          <div className="kpi-visual kpi-bars">
+            <span style={{ height: "24%" }} />
+            <span style={{ height: "42%" }} />
+            <span style={{ height: "62%" }} />
+            <span style={{ height: "78%" }} />
+          </div>
+          {expandedKpis.projects ? (
+            <div className="box-insights">
+              <span>Avg task load: {avgTaskLoad} / employee</span>
+              <span>Pending leaves: {kpis.pendingLeaves || 0}</span>
+              <span>Utilization is actively tracked</span>
+            </div>
+          ) : null}
         </article>
-        <article className="card sequence-kpi">
+        <article className="card sequence-kpi modern-kpi-card accent-purple">
+          <button className="box-expand-btn" type="button" onClick={() => toggleMapCard(setExpandedKpis, "tasks")}>
+            {expandedKpis.tasks ? "Hide" : "Insights"}
+          </button>
           <small>Number of Tasks</small>
           <h3>{totalTasks || 0}</h3>
+          <div className="kpi-visual">
+            <svg className="kpi-mini-line" viewBox="0 0 100 34" preserveAspectRatio="none" aria-hidden="true">
+              <polyline points="0,26 16,24 32,18 48,20 64,12 80,14 100,8" />
+              <circle cx="80" cy="14" r="2.2" />
+              <circle cx="100" cy="8" r="2.2" />
+            </svg>
+          </div>
+          {expandedKpis.tasks ? (
+            <div className="box-insights">
+              <span>Completed: {completedTasks}</span>
+              <span>Pending: {pendingTasks}</span>
+              <span>Avg completion: {completionRate}%</span>
+            </div>
+          ) : null}
         </article>
-        <article className="card sequence-kpi">
+        <article className="card sequence-kpi modern-kpi-card accent-orange">
+          <button className="box-expand-btn" type="button" onClick={() => toggleMapCard(setExpandedKpis, "target")}>
+            {expandedKpis.target ? "Hide" : "Insights"}
+          </button>
           <small>Target Completed</small>
           <h3>{completionRate}%</h3>
+          <div className="kpi-visual">
+            <div className="kpi-donut" style={{ "--value": Math.max(8, Math.min(completionRate, 100)) }}>
+              <span className="kpi-donut-value">{completionRate}%</span>
+            </div>
+          </div>
+          {expandedKpis.target ? (
+            <div className="box-insights">
+              <span>Target baseline: 90%</span>
+              <span>Gap: {Math.max(0, 90 - completionRate)}%</span>
+              <span>Current health: {completionRate >= 90 ? "On Track" : "Needs Push"}</span>
+            </div>
+          ) : null}
         </article>
       </section>
 
@@ -149,11 +259,21 @@ const AdminDashboardPage = () => {
           <div className="card-head">
             <h3>On Going Team Pulse</h3>
           </div>
-          <div className="employee-list-down">
+          <div className="pulse-grid">
             {employeeTrend.length ? (
               employeeTrend.map((employee) => (
-                <article className="employee-list-item" key={employee.user?._id || employee._id}>
-                  <div className="list-identity">
+                <article
+                  className={`pulse-card ${expandedPulseCards[employee.user?._id || employee._id] ? "expanded" : ""}`}
+                  key={employee.user?._id || employee._id}
+                >
+                  <button
+                    className="box-expand-btn small"
+                    type="button"
+                    onClick={() => toggleMapCard(setExpandedPulseCards, employee.user?._id || employee._id)}
+                  >
+                    {expandedPulseCards[employee.user?._id || employee._id] ? "Less" : "More"}
+                  </button>
+                  <div className="pulse-head">
                     <div className="avatar-cell small">
                       {employee.avatarUrl ? (
                         <img
@@ -169,18 +289,25 @@ const AdminDashboardPage = () => {
                       )}
                     </div>
                     <div>
-                      <strong>
+                      <strong className="pulse-name">
                         {employee.firstName} {employee.lastName}
                       </strong>
-                      <p className="muted">
-                        {employee.designation || "-"} | {employee.department || "-"}
-                      </p>
+                      <p className="muted">{employee.designation || "-"}</p>
                     </div>
                   </div>
-                  <div className="muted">
-                    <span>{employee.employeeId || "-"}</span>
-                    <span>{formatDate(employee.joinDate)}</span>
+                  <div className="pulse-meta">
+                    <span>ID: {employee.employeeId || "-"}</span>
+                    <span>Dept: {employee.department || "-"}</span>
+                    <span>Joined: {formatDate(employee.joinDate)}</span>
                   </div>
+                  {expandedPulseCards[employee.user?._id || employee._id] ? (
+                    <div className="box-insights compact">
+                      <span>Email: {employee.user?.email || employee.personalEmail || "-"}</span>
+                      <span>Phone: {employee.phone || "-"}</span>
+                      <span>Work mode: {employee.workMode || "-"}</span>
+                      <span>Type: {employee.employmentType || "-"}</span>
+                    </div>
+                  ) : null}
                 </article>
               ))
             ) : (
@@ -189,20 +316,28 @@ const AdminDashboardPage = () => {
           </div>
         </article>
 
-        <BarMetricsChart
+        <DonutLeaveChart
           title="Graphs and Analysis"
-          data={state.data?.performanceInsights || []}
-          xKey="name"
-          bars={[{ dataKey: "completionRate", color: "#2EC5BD" }]}
+          data={graphsAnalysisData}
+          height={340}
+          innerRadius={60}
+          outerRadius={112}
+          variant="callout"
+          showLegend={false}
+          showTotal={false}
         />
       </section>
 
       <section className="sequence-main-grid">
         <LineTrendChart
           title="Attendance Rate Trend"
-          data={state.data?.attendanceRateChart || []}
+          data={attendanceTrendData}
           xKey="date"
-          lines={[{ dataKey: "rate", color: "#16C79A" }]}
+          lines={[
+            { dataKey: "rate", color: "#2563EB", name: "Actual Rate", showArea: true },
+            { dataKey: "movingAvg", color: "#10B981", name: "Moving Avg" },
+            { dataKey: "target", color: "#EF4444", name: "Target", strokeDasharray: "5 5" }
+          ]}
         />
 
         <article className="card sequence-performer-card">
@@ -212,7 +347,7 @@ const AdminDashboardPage = () => {
           <div className="sequence-performer-grid">
             {topPerformers.length ? (
               topPerformers.map((item, index) => (
-                <article key={`${item.name}-${index}`} className="sequence-performer-item">
+                <article key={`${item.name}-${index}`} className="sequence-performer-item modern-performer">
                   <div className="avatar-cell medium">
                     {item.avatarUrl ? (
                       <img className="avatar-img" src={resolveFileUrl(item.avatarUrl)} alt={item.name} />
@@ -246,14 +381,32 @@ const AdminDashboardPage = () => {
       </section>
 
       <section className="card sequence-payroll-note">
-        <div>
+        <article className="modern-stat-card accent-blue">
+          <button className="box-expand-btn" type="button" onClick={() => toggleMapCard(setExpandedStats, "payroll")}>
+            {expandedStats.payroll ? "Hide" : "Insights"}
+          </button>
           <small className="muted">Monthly Payroll</small>
           <h3>{formatCurrency(kpis.totalMonthlyPayroll || 0)}</h3>
-        </div>
-        <div>
+          {expandedStats.payroll ? (
+            <div className="box-insights">
+              <span>Departments funded: {state.data?.payrollByDepartment?.length || 0}</span>
+              <span>Avg task load: {avgTaskLoad}</span>
+            </div>
+          ) : null}
+        </article>
+        <article className="modern-stat-card accent-orange">
+          <button className="box-expand-btn" type="button" onClick={() => toggleMapCard(setExpandedStats, "leave")}>
+            {expandedStats.leave ? "Hide" : "Insights"}
+          </button>
           <small className="muted">Pending Leaves</small>
           <h3>{kpis.pendingLeaves || 0}</h3>
-        </div>
+          {expandedStats.leave ? (
+            <div className="box-insights">
+              <span>High risk members: {highRiskCount}</span>
+              <span>Follow-up required for approvals</span>
+            </div>
+          ) : null}
+        </article>
       </section>
     </section>
   );

@@ -3,11 +3,11 @@ import { Bell, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search } from "lucid
 import { useNavigate } from "react-router-dom";
 import useAuth from "../../hooks/useAuth";
 import { notificationApi } from "../../api/hrmsApi";
-import { formatDateTime, resolveFileUrl } from "../../utils/format";
+import { formatDateTime } from "../../utils/format";
 
 const Topbar = ({ onOpenSidebar, onToggleSidebarCollapse, isSidebarCollapsed }) => {
   const navigate = useNavigate();
-  const { user, profile, logout } = useAuth();
+  const { logout } = useAuth();
   const [panelOpen, setPanelOpen] = useState(false);
   const [notifications, setNotifications] = useState({
     loading: false,
@@ -65,14 +65,6 @@ const Topbar = ({ onOpenSidebar, onToggleSidebarCollapse, isSidebarCollapsed }) 
     }
   };
 
-  const displayName = `${profile?.firstName || ""} ${profile?.lastName || ""}`.trim() || user?.email || "User";
-  const todayLabel = new Date().toLocaleDateString("en-IN", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric"
-  });
-
   return (
     <header className="topbar">
       <div className="topbar-left">
@@ -87,19 +79,6 @@ const Topbar = ({ onOpenSidebar, onToggleSidebarCollapse, isSidebarCollapsed }) 
         >
           {isSidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
         </button>
-        <div className="topbar-greeting">
-          <div className="avatar-cell small">
-            {profile?.avatarUrl ? (
-              <img className="avatar-img" src={resolveFileUrl(profile.avatarUrl)} alt={displayName} />
-            ) : (
-              <span className="avatar-fallback">{displayName.slice(0, 1)}</span>
-            )}
-          </div>
-          <div>
-            <strong>Hey, {displayName.split(" ")[0]}</strong>
-            <p className="muted">{todayLabel}</p>
-          </div>
-        </div>
       </div>
 
       <div className="topbar-center">

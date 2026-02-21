@@ -10,7 +10,7 @@ const DataTable = ({ columns, rows, emptyText = "No records found" }) => {
   }
 
   return (
-    <div className="table-wrap card">
+    <div className="table-wrap">
       <table>
         <thead>
           <tr>
