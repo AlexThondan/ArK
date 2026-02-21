@@ -27,17 +27,23 @@ const LineTrendChart = ({ data, xKey, lines, title }) => (
               </linearGradient>
             ))}
           </defs>
-          <CartesianGrid strokeDasharray="2 4" opacity={0.4} />
-          <XAxis dataKey={xKey} tickMargin={8} />
-          <YAxis />
+          <CartesianGrid stroke="#cde8e4" strokeDasharray="3 6" vertical={false} />
+          <XAxis
+            dataKey={xKey}
+            tickMargin={8}
+            tick={{ fontSize: 11, fill: "#6b7280" }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <YAxis tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
           <Tooltip
             contentStyle={{
-              borderRadius: 12,
-              border: "1px solid rgba(24,119,242,0.2)",
-              boxShadow: "0 10px 24px rgba(15,23,42,0.12)"
+              borderRadius: 14,
+              border: "1px solid rgba(46,197,189,0.28)",
+              boxShadow: "0 14px 30px rgba(15,23,42,0.16)"
             }}
           />
-          <Legend />
+          <Legend wrapperStyle={{ fontSize: 12, paddingTop: 10 }} />
           {lines.map((line, index) => (
             <Fragment key={line.dataKey}>
               <Area

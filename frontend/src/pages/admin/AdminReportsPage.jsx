@@ -107,10 +107,10 @@ const AdminReportsPage = () => {
           <title>ArK Reports</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 24px; }
-            h1 { color: #1877f2; margin-bottom: 14px; }
+            h1 { color: #1da59f; margin-bottom: 14px; }
             table { width: 100%; border-collapse: collapse; }
             th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 12px; }
-            th { background: #f3f6fb; }
+            th { background: #eefaf8; }
           </style>
         </head>
         <body>
@@ -157,15 +157,15 @@ const AdminReportsPage = () => {
           data={state.productivity}
           xKey="department"
           bars={[
-            { dataKey: "completionRate", color: "#1877F2" },
-            { dataKey: "inProgressTasks", color: "#10B981" }
+            { dataKey: "completionRate", color: "#2EC5BD" },
+            { dataKey: "inProgressTasks", color: "#16C79A" }
           ]}
         />
         <LineTrendChart
           title="Leave Trends"
           data={leaveChartData}
           xKey="period"
-          lines={[{ dataKey: "count", color: "#2D88FF" }]}
+          lines={[{ dataKey: "count", color: "#16C79A" }]}
         />
       </div>
 

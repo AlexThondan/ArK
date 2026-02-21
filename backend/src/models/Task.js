@@ -14,6 +14,36 @@ const taskAttachmentSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const taskChecklistSchema = new mongoose.Schema(
+  {
+    title: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    description: {
+      type: String,
+      trim: true
+    },
+    isChecked: {
+      type: Boolean,
+      default: false
+    },
+    assignee: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
+    },
+    checkedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
+    },
+    checkedAt: {
+      type: Date
+    }
+  },
+  { timestamps: true }
+);
+
 const taskSchema = new mongoose.Schema(
   {
     title: {
@@ -29,6 +59,11 @@ const taskSchema = new mongoose.Schema(
     project: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Project",
+      index: true
+    },
+    assignedTeam: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Team",
       index: true
     },
     assignedTo: {
@@ -77,6 +112,7 @@ const taskSchema = new mongoose.Schema(
       type: Date,
       index: true
     },
+    checklists: [taskChecklistSchema],
     attachments: [taskAttachmentSchema]
   },
   { timestamps: true }

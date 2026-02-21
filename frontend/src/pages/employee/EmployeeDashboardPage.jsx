@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarClock, CheckCircle2, Clock3, Hourglass, WalletCards } from "lucide-react";
 import { dashboardApi } from "../../api/hrmsApi";
-import KpiCard from "../../components/common/KpiCard";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import ErrorState from "../../components/common/ErrorState";
 import LineTrendChart from "../../components/charts/LineTrendChart";
 import DonutLeaveChart from "../../components/charts/DonutLeaveChart";
 import DataTable from "../../components/common/DataTable";
-import { formatCurrency, formatDate, formatDateTime, formatDuration } from "../../utils/format";
+import useAuth from "../../hooks/useAuth";
+import { formatCurrency, formatDate, formatDateTime, formatDuration, resolveFileUrl } from "../../utils/format";
 
 const EmployeeDashboardPage = () => {
+  const { profile } = useAuth();
   const [state, setState] = useState({ loading: true, error: "", data: null });
 
   const loadData = useCallback(async () => {
@@ -36,6 +36,17 @@ const EmployeeDashboardPage = () => {
     ];
   }, [state.data]);
 
+  const todayLabel = useMemo(
+    () =>
+      new Date().toLocaleDateString("en-IN", {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+      }),
+    []
+  );
+
   if (state.loading) return <LoadingSpinner label="Loading employee dashboard..." />;
   if (state.error) return <ErrorState message={state.error} onRetry={loadData} />;
 
@@ -47,91 +58,116 @@ const EmployeeDashboardPage = () => {
   const leaveSummary = state.data?.leaveSummary || {};
 
   return (
-    <section className="page-grid">
-      <header className="page-head">
-        <div>
-          <h1>{state.data?.welcome || "Employee Dashboard"}</h1>
-          {state.data?.employeeId ? <p className="muted">Employee ID: {state.data.employeeId}</p> : null}
+    <section className="page-grid sequence-dashboard">
+      <header className="card sequence-header">
+        <div className="sequence-user">
+          <div className="avatar-cell medium">
+            {profile?.avatarUrl ? (
+              <img className="avatar-img" src={resolveFileUrl(profile.avatarUrl)} alt="Employee avatar" />
+            ) : (
+              <span className="avatar-fallback">
+                {(profile?.firstName || "E").slice(0, 1)}
+                {(profile?.lastName || "").slice(0, 1)}
+              </span>
+            )}
+          </div>
+          <div>
+            <h2>{state.data?.welcome || "Hey there"}</h2>
+            <p className="muted">
+              {todayLabel}
+              {state.data?.employeeId ? ` | ${state.data.employeeId}` : ""}
+            </p>
+          </div>
         </div>
       </header>
 
-      <div className="kpi-grid">
-        <KpiCard title="Pending Tasks" value={state.data?.taskSummary?.pending || 0} icon={Hourglass} />
-        <KpiCard title="Completed Tasks" value={state.data?.taskSummary?.completed || 0} icon={CheckCircle2} />
-        <KpiCard
-          title="Attendance Entries"
-          value={state.data?.attendanceHistory?.length || 0}
-          icon={Clock3}
-          subtitle="Last 7 days"
-        />
-        <KpiCard title="Annual Leave Left" value={state.data?.leaveBalance?.annual || 0} icon={WalletCards} />
-      </div>
+      <section className="card sequence-alert">
+        <div>
+          <strong>Your Work Brief</strong>
+          <p className="muted">Check tasks, update progress, and keep your attendance timeline consistent.</p>
+        </div>
+      </section>
 
-      <div className="kpi-grid">
-        <KpiCard
-          title="Approved Leaves"
-          value={leaveSummary.approved?.count || 0}
-          subtitle={`${leaveSummary.approved?.days || 0} day(s) used`}
-          icon={CalendarClock}
-        />
-        <KpiCard
-          title="Pending Leave Requests"
-          value={leaveSummary.pending?.count || 0}
-          subtitle="Requests awaiting response"
-          icon={Hourglass}
-        />
-        <KpiCard
-          title="Monthly Net Pay"
-          value={formatCurrency(state.data?.payroll?.netPay || 0)}
-          subtitle={`Payout day: ${state.data?.payroll?.payoutDay || 25}`}
-          icon={WalletCards}
-        />
-      </div>
+      <section className="sequence-kpi-grid">
+        <article className="card sequence-kpi">
+          <small>Pending Tasks</small>
+          <h3>{state.data?.taskSummary?.pending || 0}</h3>
+        </article>
+        <article className="card sequence-kpi">
+          <small>Completed Tasks</small>
+          <h3>{state.data?.taskSummary?.completed || 0}</h3>
+        </article>
+        <article className="card sequence-kpi">
+          <small>Attendance Entries</small>
+          <h3>{state.data?.attendanceHistory?.length || 0}</h3>
+        </article>
+        <article className="card sequence-kpi">
+          <small>Net Pay</small>
+          <h3>{formatCurrency(state.data?.payroll?.netPay || 0)}</h3>
+        </article>
+      </section>
 
-      <div className="panel-grid two">
+      <section className="sequence-main-grid">
+        <article className="card sequence-list-card employee-scroll-panel">
+          <div className="card-head">
+            <h3>On Going Tasks</h3>
+          </div>
+          <div className="employee-list-down">
+            {(state.data?.recentTasks || []).length ? (
+              (state.data?.recentTasks || []).map((task) => (
+                <article className="employee-list-item" key={task._id || task.title}>
+                  <div>
+                    <strong>{task.title}</strong>
+                    <p className="muted">
+                      {task.priority} | {task.status}
+                    </p>
+                  </div>
+                  <div className="muted">
+                    <span>{formatDate(task.dueDate)}</span>
+                    <span>{task.progress || 0}%</span>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <p className="muted">No recent tasks.</p>
+            )}
+          </div>
+        </article>
+
         <LineTrendChart
-          title="Attendance Summary"
+          title="Attendance Graph"
           data={attendanceTrend}
           xKey="date"
-          lines={[{ dataKey: "duration", color: "#1877F2" }]}
-        />
-        <DonutLeaveChart title="Leave Balance" data={leaveChartData} />
-      </div>
-
-      <section className="card">
-        <div className="card-head">
-          <h3>Recent Tasks</h3>
-        </div>
-        <DataTable
-          rows={state.data?.recentTasks || []}
-          columns={[
-            { key: "title", label: "Task" },
-            { key: "status", label: "Status", type: "status" },
-            { key: "priority", label: "Priority" },
-            { key: "dueDate", label: "Due Date", render: (value) => formatDate(value) },
-            { key: "progress", label: "Progress", render: (value) => `${value || 0}%` }
-          ]}
+          lines={[{ dataKey: "duration", color: "#16C79A" }]}
         />
       </section>
 
-      <section className="card gradient-card">
-        <div className="card-head">
-          <h3>Payroll Snapshot</h3>
-        </div>
-        <div className="payroll-grid">
-          <div>
-            <small className="muted">Monthly Gross</small>
-            <h2>{formatCurrency(state.data?.payroll?.monthlyGross || 0)}</h2>
+      <section className="sequence-main-grid">
+        <DonutLeaveChart title="Leave Balance" data={leaveChartData} />
+
+        <article className="card sequence-performer-card">
+          <div className="card-head">
+            <h3>Payroll & Leave Snapshot</h3>
           </div>
-          <div>
-            <small className="muted">Estimated Deductions</small>
-            <h2>{formatCurrency(state.data?.payroll?.deductions || 0)}</h2>
+          <div className="sequence-note-grid">
+            <article>
+              <small className="muted">Monthly Gross</small>
+              <h3>{formatCurrency(state.data?.payroll?.monthlyGross || 0)}</h3>
+            </article>
+            <article>
+              <small className="muted">Deductions</small>
+              <h3>{formatCurrency(state.data?.payroll?.deductions || 0)}</h3>
+            </article>
+            <article>
+              <small className="muted">Approved Leaves</small>
+              <h3>{leaveSummary.approved?.count || 0}</h3>
+            </article>
+            <article>
+              <small className="muted">Pending Leaves</small>
+              <h3>{leaveSummary.pending?.count || 0}</h3>
+            </article>
           </div>
-          <div>
-            <small className="muted">Take Home</small>
-            <h2>{formatCurrency(state.data?.payroll?.netPay || 0)}</h2>
-          </div>
-        </div>
+        </article>
       </section>
 
       <section className="card">

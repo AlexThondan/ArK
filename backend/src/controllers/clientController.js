@@ -102,9 +102,34 @@ const updateClient = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * @desc Upload client logo
+ * @route PATCH /api/clients/:id/logo
+ * @access Admin
+ */
+const uploadClientLogo = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    throw new ApiError(400, "Logo file is required");
+  }
+
+  const client = await Client.findById(req.params.id);
+  if (!client) {
+    throw new ApiError(404, "Client not found");
+  }
+
+  client.logoUrl = `/uploads/${req.file.filename}`;
+  await client.save();
+
+  res.status(200).json({
+    success: true,
+    data: client
+  });
+});
+
 module.exports = {
   createClient,
   getClients,
   getClientById,
-  updateClient
+  updateClient,
+  uploadClientLogo
 };

@@ -45,6 +45,7 @@ export const taskApi = {
   admin: async (params) => (await client.get("/tasks/admin", { params })).data,
   create: async (payload) => (await client.post("/tasks", payload)).data,
   updateStatus: async (id, payload) => (await client.patch(`/tasks/${id}/status`, payload)).data,
+  updateChecklist: async (id, payload) => (await client.patch(`/tasks/${id}/checklists`, payload)).data,
   uploadAttachment: async (id, file) => {
     const formData = new FormData();
     formData.append("file", file);
@@ -77,13 +78,24 @@ export const projectApi = {
 export const clientApi = {
   list: async (params) => (await client.get("/clients", { params })).data,
   create: async (payload) => (await client.post("/clients", payload)).data,
-  update: async (id, payload) => (await client.patch(`/clients/${id}`, payload)).data
+  update: async (id, payload) => (await client.patch(`/clients/${id}`, payload)).data,
+  uploadLogo: async (id, file) => {
+    const formData = new FormData();
+    formData.append("logo", file);
+    return (await client.patch(`/clients/${id}/logo`, formData)).data;
+  }
 };
 
 export const reportApi = {
   departmentProductivity: async () => (await client.get("/reports/department-productivity")).data,
   leaveTrends: async () => (await client.get("/reports/leave-trends")).data,
   performance: async () => (await client.get("/reports/performance")).data
+};
+
+export const teamApi = {
+  list: async (params) => (await client.get("/teams", { params })).data,
+  create: async (payload) => (await client.post("/teams", payload)).data,
+  update: async (id, payload) => (await client.patch(`/teams/${id}`, payload)).data
 };
 
 export const notificationApi = {

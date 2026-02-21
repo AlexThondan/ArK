@@ -10,7 +10,7 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["task-assigned", "leave-request", "leave-reviewed", "system"],
+      enum: ["task-assigned", "task-update", "leave-request", "leave-reviewed", "system"],
       default: "system",
       index: true
     },

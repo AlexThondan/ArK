@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
+import { City, Country, State } from "country-state-city";
 import { employeeApi } from "../../api/hrmsApi";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import ErrorState from "../../components/common/ErrorState";
@@ -13,6 +14,24 @@ const EmployeeProfilePage = () => {
   const [profile, setProfile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [avatarVersion, setAvatarVersion] = useState(Date.now());
+
+  const countries = useMemo(() => Country.getAllCountries(), []);
+  const profileCountryCode = useMemo(
+    () => countries.find((item) => item.name === (profile?.address?.country || ""))?.isoCode || "",
+    [countries, profile?.address?.country]
+  );
+  const profileStates = useMemo(
+    () => (profileCountryCode ? State.getStatesOfCountry(profileCountryCode) : []),
+    [profileCountryCode]
+  );
+  const profileStateCode = useMemo(
+    () => profileStates.find((item) => item.name === (profile?.address?.state || ""))?.isoCode || "",
+    [profileStates, profile?.address?.state]
+  );
+  const profileCities = useMemo(
+    () => (profileCountryCode && profileStateCode ? City.getCitiesOfState(profileCountryCode, profileStateCode) : []),
+    [profileCountryCode, profileStateCode]
+  );
 
   const loadProfile = useCallback(async () => {
     try {
@@ -39,10 +58,20 @@ const EmployeeProfilePage = () => {
         firstName: profile.firstName,
         lastName: profile.lastName,
         phone: profile.phone,
+        personalEmail: profile.personalEmail,
+        alternatePhone: profile.alternatePhone,
+        dob: profile.dob,
         gender: profile.gender,
+        maritalStatus: profile.maritalStatus,
+        bloodGroup: profile.bloodGroup,
+        nationality: profile.nationality,
         workMode: profile.workMode,
         employmentType: profile.employmentType,
         emergencyContact: profile.emergencyContact,
+        governmentIds: profile.governmentIds,
+        bankDetails: profile.bankDetails,
+        experience: profile.experience,
+        address: profile.address,
         bio: profile.bio,
         skills: profile.skills || [],
         certifications: profile.certifications || []
@@ -120,6 +149,29 @@ const EmployeeProfilePage = () => {
           />
         </label>
         <label>
+          Personal Email
+          <input
+            type="email"
+            value={profile.personalEmail || ""}
+            onChange={(event) => setProfile((prev) => ({ ...prev, personalEmail: event.target.value }))}
+          />
+        </label>
+        <label>
+          Alternate Phone
+          <input
+            value={profile.alternatePhone || ""}
+            onChange={(event) => setProfile((prev) => ({ ...prev, alternatePhone: event.target.value }))}
+          />
+        </label>
+        <label>
+          Date of Birth
+          <input
+            type="date"
+            value={profile.dob ? new Date(profile.dob).toISOString().slice(0, 10) : ""}
+            onChange={(event) => setProfile((prev) => ({ ...prev, dob: event.target.value }))}
+          />
+        </label>
+        <label>
           Gender
           <select
             value={profile.gender || ""}
@@ -131,6 +183,44 @@ const EmployeeProfilePage = () => {
             <option value="non-binary">Non-binary</option>
             <option value="prefer-not-to-say">Prefer not to say</option>
           </select>
+        </label>
+        <label>
+          Marital Status
+          <select
+            value={profile.maritalStatus || ""}
+            onChange={(event) => setProfile((prev) => ({ ...prev, maritalStatus: event.target.value }))}
+          >
+            <option value="">Select</option>
+            <option value="single">Single</option>
+            <option value="married">Married</option>
+            <option value="divorced">Divorced</option>
+            <option value="widowed">Widowed</option>
+            <option value="prefer-not-to-say">Prefer not to say</option>
+          </select>
+        </label>
+        <label>
+          Blood Group
+          <select
+            value={profile.bloodGroup || ""}
+            onChange={(event) => setProfile((prev) => ({ ...prev, bloodGroup: event.target.value }))}
+          >
+            <option value="">Select</option>
+            <option value="A+">A+</option>
+            <option value="A-">A-</option>
+            <option value="B+">B+</option>
+            <option value="B-">B-</option>
+            <option value="AB+">AB+</option>
+            <option value="AB-">AB-</option>
+            <option value="O+">O+</option>
+            <option value="O-">O-</option>
+          </select>
+        </label>
+        <label>
+          Nationality
+          <input
+            value={profile.nationality || ""}
+            onChange={(event) => setProfile((prev) => ({ ...prev, nationality: event.target.value }))}
+          />
         </label>
         <label>
           Work Mode
@@ -154,6 +244,32 @@ const EmployeeProfilePage = () => {
             <option value="contract">Contract</option>
             <option value="intern">Intern</option>
           </select>
+        </label>
+
+        <label>
+          Experience (Years)
+          <input
+            type="number"
+            value={profile.experience?.totalYears || ""}
+            onChange={(event) =>
+              setProfile((prev) => ({
+                ...prev,
+                experience: { ...(prev.experience || {}), totalYears: Number(event.target.value || 0) }
+              }))
+            }
+          />
+        </label>
+        <label>
+          Previous Company
+          <input
+            value={profile.experience?.previousCompany || ""}
+            onChange={(event) =>
+              setProfile((prev) => ({
+                ...prev,
+                experience: { ...(prev.experience || {}), previousCompany: event.target.value }
+              }))
+            }
+          />
         </label>
 
         <label className="full-width">
@@ -204,6 +320,149 @@ const EmployeeProfilePage = () => {
               setProfile((prev) => ({
                 ...prev,
                 emergencyContact: { ...(prev.emergencyContact || {}), phone: event.target.value }
+              }))
+            }
+          />
+        </label>
+
+        <label className="full-width">
+          Address Line 1
+          <input
+            value={profile.address?.line1 || ""}
+            onChange={(event) =>
+              setProfile((prev) => ({
+                ...prev,
+                address: { ...(prev.address || {}), line1: event.target.value }
+              }))
+            }
+          />
+        </label>
+        <label>
+          City
+          <select
+            value={profile.address?.city || ""}
+            onChange={(event) =>
+              setProfile((prev) => ({
+                ...prev,
+                address: { ...(prev.address || {}), city: event.target.value }
+              }))
+            }
+          >
+            <option value="">Select city</option>
+            {profileCities.map((item) => (
+              <option key={item.name} value={item.name}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          State
+          <select
+            value={profile.address?.state || ""}
+            onChange={(event) =>
+              setProfile((prev) => ({
+                ...prev,
+                address: { ...(prev.address || {}), state: event.target.value, city: "" }
+              }))
+            }
+          >
+            <option value="">Select state</option>
+            {profileStates.map((item) => (
+              <option key={item.isoCode} value={item.name}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Country
+          <select
+            value={profile.address?.country || ""}
+            onChange={(event) =>
+              setProfile((prev) => ({
+                ...prev,
+                address: { ...(prev.address || {}), country: event.target.value, state: "", city: "" }
+              }))
+            }
+          >
+            <option value="">Select country</option>
+            {countries.map((item) => (
+              <option key={item.isoCode} value={item.name}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Postal Code
+          <input
+            value={profile.address?.postalCode || ""}
+            onChange={(event) =>
+              setProfile((prev) => ({
+                ...prev,
+                address: { ...(prev.address || {}), postalCode: event.target.value }
+              }))
+            }
+          />
+        </label>
+
+        <label>
+          PAN
+          <input
+            value={profile.governmentIds?.pan || ""}
+            onChange={(event) =>
+              setProfile((prev) => ({
+                ...prev,
+                governmentIds: { ...(prev.governmentIds || {}), pan: event.target.value }
+              }))
+            }
+          />
+        </label>
+        <label>
+          Aadhaar
+          <input
+            value={profile.governmentIds?.aadhaar || ""}
+            onChange={(event) =>
+              setProfile((prev) => ({
+                ...prev,
+                governmentIds: { ...(prev.governmentIds || {}), aadhaar: event.target.value }
+              }))
+            }
+          />
+        </label>
+        <label>
+          Bank Name
+          <input
+            value={profile.bankDetails?.bankName || ""}
+            onChange={(event) =>
+              setProfile((prev) => ({
+                ...prev,
+                bankDetails: { ...(prev.bankDetails || {}), bankName: event.target.value }
+              }))
+            }
+          />
+        </label>
+        <label>
+          Account Number
+          <input
+            value={profile.bankDetails?.accountNumber || ""}
+            onChange={(event) =>
+              setProfile((prev) => ({
+                ...prev,
+                bankDetails: { ...(prev.bankDetails || {}), accountNumber: event.target.value }
+              }))
+            }
+          />
+        </label>
+        <label>
+          IFSC
+          <input
+            value={profile.bankDetails?.ifsc || ""}
+            onChange={(event) =>
+              setProfile((prev) => ({
+                ...prev,
+                bankDetails: { ...(prev.bankDetails || {}), ifsc: event.target.value }
               }))
             }
           />

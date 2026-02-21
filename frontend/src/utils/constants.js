@@ -3,6 +3,7 @@ import {
   Building2,
   CalendarCheck2,
   ClipboardList,
+  GitBranch,
   IdCard,
   FileText,
   LayoutDashboard,
@@ -16,6 +17,7 @@ export const employeeNav = [
   { label: "Tasks", to: "/employee/tasks", icon: ClipboardList },
   { label: "Leave", to: "/employee/leave", icon: CalendarCheck2 },
   { label: "Attendance", to: "/employee/attendance", icon: BarChart3 },
+  { label: "Teams", to: "/employee/teams", icon: GitBranch },
   { label: "Documents", to: "/employee/documents", icon: FileText },
   { label: "Settings", to: "/settings", icon: Settings }
 ];
@@ -23,6 +25,7 @@ export const employeeNav = [
 export const adminNav = [
   { label: "Dashboard", to: "/admin/dashboard", icon: LayoutDashboard },
   { label: "Employees", to: "/admin/employees", icon: Users },
+  { label: "Teams", to: "/admin/teams", icon: GitBranch },
   { label: "Projects", to: "/admin/projects", icon: ClipboardList },
   { label: "Leave", to: "/admin/leaves", icon: CalendarCheck2 },
   { label: "Attendance", to: "/admin/attendance", icon: BarChart3 },

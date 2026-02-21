@@ -55,6 +55,15 @@ const EmployeeTasksPage = () => {
     }
   };
 
+  const toggleChecklist = async (taskId, checklistId, nextChecked) => {
+    try {
+      await taskApi.updateChecklist(taskId, { checklistId, isChecked: nextChecked });
+      loadData();
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
+
   const uploadAttachment = async (taskId, file) => {
     if (!file) return;
     try {
@@ -86,6 +95,7 @@ const EmployeeTasksPage = () => {
               <th>Task</th>
               <th>Status</th>
               <th>Progress</th>
+              <th>Checklist</th>
               <th>Update Note</th>
               <th>Due Date</th>
               <th>Attachment</th>
@@ -173,6 +183,24 @@ const EmployeeTasksPage = () => {
                   </div>
                 </td>
                 <td>
+                  {task.checklists?.length ? (
+                    <div className="checklist-list">
+                      {task.checklists.map((item) => (
+                        <label key={item._id} className="checklist-row">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(item.isChecked)}
+                            onChange={(event) => toggleChecklist(task._id, item._id, event.target.checked)}
+                          />
+                          <span>{item.title}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="muted">-</span>
+                  )}
+                </td>
+                <td>
                   <textarea
                     className="inline-note"
                     placeholder="Add work update or blockers"
@@ -246,8 +274,8 @@ const EmployeeTasksPage = () => {
         <div className="button-row">
           <CheckCircle2 size={16} />
           <p className="muted">
-            Tick the round checkbox when complete, add your update note, upload proof file if needed, and click
-            submit.
+            Tick the round checkbox and checklist items when complete, add your update note, upload proof file if
+            needed, and click submit.
           </p>
         </div>
       </section>

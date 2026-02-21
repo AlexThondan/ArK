@@ -13,6 +13,10 @@ const clientSchema = new mongoose.Schema(
       trim: true,
       index: true
     },
+    logoUrl: {
+      type: String,
+      trim: true
+    },
     contactRole: {
       type: String,
       trim: true
@@ -44,6 +48,10 @@ const clientSchema = new mongoose.Schema(
       trim: true
     },
     country: {
+      type: String,
+      trim: true
+    },
+    state: {
       type: String,
       trim: true
     },

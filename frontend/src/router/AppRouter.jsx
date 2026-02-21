@@ -9,8 +9,10 @@ import EmployeeAttendancePage from "../pages/employee/EmployeeAttendancePage";
 import EmployeeLeavePage from "../pages/employee/EmployeeLeavePage";
 import EmployeeTasksPage from "../pages/employee/EmployeeTasksPage";
 import EmployeeDocumentsPage from "../pages/employee/EmployeeDocumentsPage";
+import EmployeeTeamsPage from "../pages/employee/EmployeeTeamsPage";
 import AdminDashboardPage from "../pages/admin/AdminDashboardPage";
 import AdminEmployeesPage from "../pages/admin/AdminEmployeesPage";
+import AdminTeamsPage from "../pages/admin/AdminTeamsPage";
 import AdminLeavePage from "../pages/admin/AdminLeavePage";
 import AdminAttendancePage from "../pages/admin/AdminAttendancePage";
 import AdminProjectsPage from "../pages/admin/AdminProjectsPage";
@@ -79,6 +81,14 @@ const AppRouter = () => (
         }
       />
       <Route
+        path="employee/teams"
+        element={
+          <ProtectedRoute allowedRoles={["employee"]}>
+            <EmployeeTeamsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="employee/documents"
         element={
           <ProtectedRoute allowedRoles={["employee"]}>
@@ -100,6 +110,14 @@ const AppRouter = () => (
         element={
           <ProtectedRoute allowedRoles={["admin"]}>
             <AdminEmployeesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="admin/teams"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <AdminTeamsPage />
           </ProtectedRoute>
         }
       />

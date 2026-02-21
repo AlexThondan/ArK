@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { Building2, PlusCircle } from "lucide-react";
+import { Building2, PlusCircle, UploadCloud } from "lucide-react";
+import { City, Country, State } from "country-state-city";
 import { clientApi } from "../../api/hrmsApi";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import ErrorState from "../../components/common/ErrorState";
 import DataTable from "../../components/common/DataTable";
 import FormModal from "../../components/common/FormModal";
-import { formatCurrency } from "../../utils/format";
+import { formatCurrency, resolveFileUrl } from "../../utils/format";
 
 const initialClient = {
   name: "",
@@ -18,11 +19,13 @@ const initialClient = {
   website: "",
   timezone: "",
   country: "",
+  state: "",
   city: "",
   contractValue: "",
   status: "active",
   address: "",
-  notes: ""
+  notes: "",
+  logoFile: null
 };
 
 const AdminClientsPage = () => {
@@ -31,6 +34,20 @@ const AdminClientsPage = () => {
   const [form, setForm] = useState(initialClient);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
+  const countries = useMemo(() => Country.getAllCountries(), []);
+  const countryCode = useMemo(
+    () => countries.find((item) => item.name === form.country)?.isoCode || "",
+    [countries, form.country]
+  );
+  const states = useMemo(() => (countryCode ? State.getStatesOfCountry(countryCode) : []), [countryCode]);
+  const stateCode = useMemo(
+    () => states.find((item) => item.name === form.state)?.isoCode || "",
+    [states, form.state]
+  );
+  const cities = useMemo(
+    () => (countryCode && stateCode ? City.getCitiesOfState(countryCode, stateCode) : []),
+    [countryCode, stateCode]
+  );
 
   const loadData = useCallback(async () => {
     try {
@@ -53,10 +70,25 @@ const AdminClientsPage = () => {
   const handleCreate = async (event) => {
     event.preventDefault();
     try {
-      await clientApi.create(form);
+      const { logoFile, ...payload } = form;
+      const response = await clientApi.create(payload);
+      if (logoFile && response?.data?._id) {
+        await clientApi.uploadLogo(response.data._id, logoFile);
+      }
       toast.success("Client added");
       setForm(initialClient);
       setShowModal(false);
+      loadData();
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
+
+  const uploadLogo = async (clientId, file) => {
+    if (!file) return;
+    try {
+      await clientApi.uploadLogo(clientId, file);
+      toast.success("Client logo updated");
       loadData();
     } catch (error) {
       toast.error(error.message);
@@ -103,6 +135,15 @@ const AdminClientsPage = () => {
         <DataTable
           rows={state.rows}
           columns={[
+            {
+              key: "logoUrl",
+              label: "Logo",
+              render: (value, row) => (
+                <div className="avatar-cell">
+                  {value ? <img className="avatar-img" src={resolveFileUrl(value)} alt={row.company} /> : <span className="avatar-fallback">{(row.company || "C").slice(0, 1)}</span>}
+                </div>
+              )
+            },
             { key: "name", label: "Contact Name" },
             { key: "contactRole", label: "Role" },
             { key: "company", label: "Company" },
@@ -115,7 +156,18 @@ const AdminClientsPage = () => {
               render: (value) => formatCurrency(value)
             },
             { key: "status", label: "Status", type: "status" },
-            { key: "address", label: "Address" }
+            { key: "address", label: "Address" },
+            {
+              key: "upload",
+              label: "Upload Logo",
+              render: (_value, row) => (
+                <label className="btn btn-outline">
+                  <UploadCloud size={14} />
+                  Logo
+                  <input type="file" accept="image/*" hidden onChange={(event) => uploadLogo(row._id, event.target.files?.[0])} />
+                </label>
+              )
+            }
           ]}
         />
       </section>
@@ -183,11 +235,60 @@ const AdminClientsPage = () => {
           </label>
           <label>
             Country
-            <input value={form.country} onChange={(event) => setForm((prev) => ({ ...prev, country: event.target.value }))} />
+            <select
+              value={form.country}
+              onChange={(event) =>
+                setForm((prev) => ({
+                  ...prev,
+                  country: event.target.value,
+                  state: "",
+                  city: ""
+                }))
+              }
+            >
+              <option value="">Select country</option>
+              {countries.map((item) => (
+                <option key={item.isoCode} value={item.name}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            State
+            <select
+              value={form.state}
+              onChange={(event) =>
+                setForm((prev) => ({
+                  ...prev,
+                  state: event.target.value,
+                  city: ""
+                }))
+              }
+              disabled={!countryCode}
+            >
+              <option value="">{countryCode ? "Select state" : "Select country first"}</option>
+              {states.map((item) => (
+                <option key={item.isoCode} value={item.name}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
           </label>
           <label>
             City
-            <input value={form.city} onChange={(event) => setForm((prev) => ({ ...prev, city: event.target.value }))} />
+            <select
+              value={form.city}
+              onChange={(event) => setForm((prev) => ({ ...prev, city: event.target.value }))}
+              disabled={!stateCode}
+            >
+              <option value="">{stateCode ? "Select city" : "Select state first"}</option>
+              {cities.map((item) => (
+                <option key={`${item.name}-${item.latitude}-${item.longitude}`} value={item.name}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
           </label>
           <label>
             Contract Value
@@ -215,6 +316,16 @@ const AdminClientsPage = () => {
           <label className="full-width">
             Notes
             <textarea value={form.notes} onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))} />
+          </label>
+          <label className="btn btn-outline">
+            <UploadCloud size={14} />
+            Upload Client Logo
+            <input
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(event) => setForm((prev) => ({ ...prev, logoFile: event.target.files?.[0] || null }))}
+            />
           </label>
           <button className="btn btn-primary" type="submit">
             Save Client

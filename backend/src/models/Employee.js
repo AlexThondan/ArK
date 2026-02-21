@@ -31,12 +31,34 @@ const employeeSchema = new mongoose.Schema(
       type: String,
       trim: true
     },
+    personalEmail: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      index: true
+    },
+    alternatePhone: {
+      type: String,
+      trim: true
+    },
     dob: {
       type: Date
     },
     gender: {
       type: String,
       enum: ["male", "female", "non-binary", "prefer-not-to-say"]
+    },
+    maritalStatus: {
+      type: String,
+      enum: ["single", "married", "divorced", "widowed", "prefer-not-to-say"]
+    },
+    bloodGroup: {
+      type: String,
+      enum: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]
+    },
+    nationality: {
+      type: String,
+      trim: true
     },
     department: {
       type: String,
@@ -74,6 +96,31 @@ const employeeSchema = new mongoose.Schema(
       name: String,
       relation: String,
       phone: String
+    },
+    governmentIds: {
+      pan: String,
+      aadhaar: String,
+      passport: String
+    },
+    bankDetails: {
+      accountHolder: String,
+      accountNumber: String,
+      ifsc: String,
+      bankName: String,
+      branch: String,
+      upiId: String
+    },
+    education: [
+      {
+        degree: String,
+        institution: String,
+        year: Number,
+        grade: String
+      }
+    ],
+    experience: {
+      totalYears: Number,
+      previousCompany: String
     },
     bio: {
       type: String,

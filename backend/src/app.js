@@ -16,6 +16,7 @@ const documentRoutes = require("./routes/documentRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const reportRoutes = require("./routes/reportRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
+const teamRoutes = require("./routes/teamRoutes");
 
 const app = express();
 
@@ -57,6 +58,7 @@ app.use("/api/documents", documentRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/teams", teamRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

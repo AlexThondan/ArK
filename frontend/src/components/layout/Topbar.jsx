@@ -3,7 +3,7 @@ import { Bell, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search } from "lucid
 import { useNavigate } from "react-router-dom";
 import useAuth from "../../hooks/useAuth";
 import { notificationApi } from "../../api/hrmsApi";
-import { formatDateTime } from "../../utils/format";
+import { formatDateTime, resolveFileUrl } from "../../utils/format";
 
 const Topbar = ({ onOpenSidebar, onToggleSidebarCollapse, isSidebarCollapsed }) => {
   const navigate = useNavigate();
@@ -66,6 +66,12 @@ const Topbar = ({ onOpenSidebar, onToggleSidebarCollapse, isSidebarCollapsed }) 
   };
 
   const displayName = `${profile?.firstName || ""} ${profile?.lastName || ""}`.trim() || user?.email || "User";
+  const todayLabel = new Date().toLocaleDateString("en-IN", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  });
 
   return (
     <header className="topbar">
@@ -81,9 +87,25 @@ const Topbar = ({ onOpenSidebar, onToggleSidebarCollapse, isSidebarCollapsed }) 
         >
           {isSidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
         </button>
+        <div className="topbar-greeting">
+          <div className="avatar-cell small">
+            {profile?.avatarUrl ? (
+              <img className="avatar-img" src={resolveFileUrl(profile.avatarUrl)} alt={displayName} />
+            ) : (
+              <span className="avatar-fallback">{displayName.slice(0, 1)}</span>
+            )}
+          </div>
+          <div>
+            <strong>Hey, {displayName.split(" ")[0]}</strong>
+            <p className="muted">{todayLabel}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="topbar-center">
         <div className="search-box">
           <Search size={16} />
-          <input type="search" placeholder="Search tasks, people, projects..." />
+          <input type="search" placeholder="Start searching here" />
         </div>
       </div>
 
@@ -129,9 +151,6 @@ const Topbar = ({ onOpenSidebar, onToggleSidebarCollapse, isSidebarCollapsed }) 
             </div>
           </div>
         ) : null}
-        <div className="profile-chip">
-          <strong>{displayName}</strong>
-        </div>
         <button
           className="btn btn-logout"
           type="button"

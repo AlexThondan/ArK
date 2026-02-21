@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { BriefcaseBusiness, ClipboardCheck, PlusCircle, Sparkles } from "lucide-react";
-import { clientApi, employeeApi, projectApi, taskApi } from "../../api/hrmsApi";
+import { clientApi, employeeApi, projectApi, taskApi, teamApi } from "../../api/hrmsApi";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import ErrorState from "../../components/common/ErrorState";
 import FormModal from "../../components/common/FormModal";
-import { formatCurrency, formatDate } from "../../utils/format";
+import { formatCurrency, formatDate, resolveFileUrl } from "../../utils/format";
 
 const initialProject = {
   name: "",
@@ -20,11 +20,14 @@ const initialProject = {
 
 const initialTask = {
   title: "",
+  assignMode: "employee",
   assignedTo: "",
+  assignedTeam: "",
   project: "",
   dueDate: "",
   priority: "medium",
-  description: ""
+  description: "",
+  checklists: [{ title: "", description: "" }]
 };
 
 const AdminProjectsPage = () => {
@@ -34,7 +37,8 @@ const AdminProjectsPage = () => {
     projects: [],
     tasks: [],
     employees: [],
-    clients: []
+    clients: [],
+    teams: []
   });
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
@@ -45,11 +49,12 @@ const AdminProjectsPage = () => {
   const loadData = useCallback(async () => {
     try {
       setState((prev) => ({ ...prev, loading: true, error: "" }));
-      const [projectsRes, tasksRes, employeeRes, clientRes] = await Promise.all([
+      const [projectsRes, tasksRes, employeeRes, clientRes, teamRes] = await Promise.all([
         projectApi.list({ limit: 100 }),
         taskApi.admin({ limit: 100 }),
         employeeApi.list({ limit: 200 }),
-        clientApi.list({ limit: 200 })
+        clientApi.list({ limit: 200 }),
+        teamApi.list({ limit: 200, isActive: true })
       ]);
 
       const projects = projectsRes.data || [];
@@ -59,7 +64,8 @@ const AdminProjectsPage = () => {
         projects,
         tasks: tasksRes.data || [],
         employees: employeeRes.data || [],
-        clients: clientRes.data || []
+        clients: clientRes.data || [],
+        teams: teamRes.data || []
       });
       setProjectDrafts(
         projects.reduce((acc, project) => {
@@ -77,7 +83,8 @@ const AdminProjectsPage = () => {
         projects: [],
         tasks: [],
         employees: [],
-        clients: []
+        clients: [],
+        teams: []
       });
     }
   }, []);
@@ -105,8 +112,43 @@ const AdminProjectsPage = () => {
   const createTask = async (event) => {
     event.preventDefault();
     try {
-      await taskApi.create(taskForm);
+      if (taskForm.assignMode === "team" && !taskForm.assignedTeam) {
+        toast.error("Select a team before assigning");
+        return;
+      }
+      if (taskForm.assignMode === "employee" && !taskForm.assignedTo) {
+        toast.error("Select an employee before assigning");
+        return;
+      }
+
+      if (taskForm.assignMode === "team") {
+        const selectedTeam = state.teams.find((team) => team._id === taskForm.assignedTeam);
+        if (!selectedTeam || !(selectedTeam.members || []).length) {
+          toast.error("Selected team has no members");
+          return;
+        }
+      }
+
+      const payload = {
+        title: taskForm.title,
+        project: taskForm.project || undefined,
+        dueDate: taskForm.dueDate || undefined,
+        priority: taskForm.priority,
+        description: taskForm.description,
+        checklists: (taskForm.checklists || []).filter((row) => row.title?.trim())
+      };
+
+      if (taskForm.assignMode === "team") {
+        payload.assignedTeam = taskForm.assignedTeam;
+      } else {
+        payload.assignedTo = taskForm.assignedTo;
+      }
+
+      const response = await taskApi.create(payload);
       toast.success("Task assigned");
+      if (response.createdCount) {
+        toast.success(`${response.createdCount} tasks created for team members`);
+      }
       setTaskForm(initialTask);
       setShowTaskModal(false);
       loadData();
@@ -229,7 +271,20 @@ const AdminProjectsPage = () => {
                 <tr key={project._id}>
                   <td>{project.name}</td>
                   <td>{project.code}</td>
-                  <td>{project.client?.company || "-"}</td>
+                  <td>
+                    <div className="list-identity">
+                      <div className="avatar-cell small">
+                        {project.client?.logoUrl ? (
+                          <img className="avatar-img" src={resolveFileUrl(project.client.logoUrl)} alt={project.client?.company || "Client"} />
+                        ) : (
+                          <span className="avatar-fallback">{(project.client?.company || "C").slice(0, 1)}</span>
+                        )}
+                      </div>
+                      <div>
+                        <strong>{project.client?.company || "-"}</strong>
+                      </div>
+                    </div>
+                  </td>
                   <td>{formatCurrency(project.budget || 0)}</td>
                   <td>
                     <select
@@ -308,7 +363,7 @@ const AdminProjectsPage = () => {
               <h4>{key}</h4>
               <div className="kanban-list">
                 {tasks.map((task) => {
-                  const assigneeId = task.assignedTo?._id || task.assignedTo;
+                  const assigneeId = String(task.assignedTo?._id || task.assignedTo || "");
                   const employee = employeeMap[assigneeId];
                   return (
                     <article className="kanban-card" key={task._id}>
@@ -319,6 +374,8 @@ const AdminProjectsPage = () => {
                         {(employee?.firstName || "Unknown")} {(employee?.lastName || "")}{" "}
                         {employee?.employeeId ? `(${employee.employeeId})` : ""}
                       </small>
+                      {task.assignedTeam?.name ? <small>Team: {task.assignedTeam.name}</small> : null}
+                      {task.checklists?.length ? <small>Checklist: {task.checklists.filter((item) => item.isChecked).length}/{task.checklists.length}</small> : null}
                       <small>{formatDate(task.dueDate)}</small>
                     </article>
                   );
@@ -421,9 +478,27 @@ const AdminProjectsPage = () => {
             />
           </label>
           <label>
+            Assign To
+            <select
+              value={taskForm.assignMode}
+              onChange={(event) =>
+                setTaskForm((prev) => ({
+                  ...prev,
+                  assignMode: event.target.value,
+                  assignedTo: "",
+                  assignedTeam: ""
+                }))
+              }
+            >
+              <option value="employee">Individual Employee</option>
+              <option value="team">Team</option>
+            </select>
+          </label>
+          <label>
             Employee
             <select
-              required
+              required={taskForm.assignMode === "employee"}
+              disabled={taskForm.assignMode !== "employee"}
               value={taskForm.assignedTo}
               onChange={(event) => setTaskForm((prev) => ({ ...prev, assignedTo: event.target.value }))}
             >
@@ -431,6 +506,22 @@ const AdminProjectsPage = () => {
               {state.employees.map((employee) => (
                 <option key={employee.user?._id} value={employee.user?._id}>
                   {employee.firstName} {employee.lastName} {employee.employeeId ? `(${employee.employeeId})` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Team
+            <select
+              required={taskForm.assignMode === "team"}
+              disabled={taskForm.assignMode !== "team"}
+              value={taskForm.assignedTeam}
+              onChange={(event) => setTaskForm((prev) => ({ ...prev, assignedTeam: event.target.value }))}
+            >
+              <option value="">Select team</option>
+              {state.teams.map((team) => (
+                <option key={team._id} value={team._id} disabled={!(team.members || []).length}>
+                  {team.name} ({team.code}) {(team.members || []).length ? `- ${team.members.length} member(s)` : "- No members"}
                 </option>
               ))}
             </select>
@@ -476,6 +567,65 @@ const AdminProjectsPage = () => {
               onChange={(event) => setTaskForm((prev) => ({ ...prev, description: event.target.value }))}
             />
           </label>
+          <div className="full-width checklist-wrap">
+            <div className="card-head">
+              <h3>Checklist Items (HR Assigned)</h3>
+              <button
+                className="btn btn-outline"
+                type="button"
+                onClick={() =>
+                  setTaskForm((prev) => ({
+                    ...prev,
+                    checklists: [...(prev.checklists || []), { title: "", description: "" }]
+                  }))
+                }
+              >
+                Add Checkbox
+              </button>
+            </div>
+            <div className="form-grid">
+              {(taskForm.checklists || []).map((item, index) => (
+                <div className="checklist-item" key={`${item.title}-${index}`}>
+                  <input
+                    placeholder="Checklist title"
+                    value={item.title}
+                    onChange={(event) =>
+                      setTaskForm((prev) => ({
+                        ...prev,
+                        checklists: prev.checklists.map((row, rowIndex) =>
+                          rowIndex === index ? { ...row, title: event.target.value } : row
+                        )
+                      }))
+                    }
+                  />
+                  <input
+                    placeholder="Description (optional)"
+                    value={item.description}
+                    onChange={(event) =>
+                      setTaskForm((prev) => ({
+                        ...prev,
+                        checklists: prev.checklists.map((row, rowIndex) =>
+                          rowIndex === index ? { ...row, description: event.target.value } : row
+                        )
+                      }))
+                    }
+                  />
+                  <button
+                    className="btn btn-danger"
+                    type="button"
+                    onClick={() =>
+                      setTaskForm((prev) => ({
+                        ...prev,
+                        checklists: prev.checklists.filter((_, rowIndex) => rowIndex !== index)
+                      }))
+                    }
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
           <button className="btn btn-primary" type="submit">
             Assign Task
           </button>

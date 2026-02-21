@@ -1,6 +1,6 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
-const palette = ["#1877F2", "#2D88FF", "#5AA6FF", "#10B981", "#F59E0B"];
+const palette = ["#2EC5BD", "#16C79A", "#74E3C8", "#43D4C6", "#F59E0B"];
 
 const DonutLeaveChart = ({ data, title }) => {
   const total = data.reduce((sum, row) => sum + Number(row.value || 0), 0);
@@ -20,9 +20,9 @@ const DonutLeaveChart = ({ data, title }) => {
             </Pie>
             <Tooltip
               contentStyle={{
-                borderRadius: 12,
-                border: "1px solid rgba(24,119,242,0.2)",
-                boxShadow: "0 10px 24px rgba(15,23,42,0.12)"
+                borderRadius: 14,
+                border: "1px solid rgba(46,197,189,0.28)",
+                boxShadow: "0 14px 30px rgba(15,23,42,0.16)"
               }}
             />
           </PieChart>
