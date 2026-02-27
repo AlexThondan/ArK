@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "seed:admin": "node src/seed/seedAdmin.js"
+    "seed:admin": "node src/seed/seedAdmin.js",
+    "seed:demo": "node src/seed/seedDemoData.js"
   },
   "keywords": [
     "hrms",

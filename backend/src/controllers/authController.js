@@ -4,21 +4,7 @@ const ApiError = require("../utils/ApiError");
 const asyncHandler = require("../utils/asyncHandler");
 const { signToken } = require("../utils/jwt");
 const { loadEnv } = require("../config/env");
-
-const generateEmployeeId = async () => {
-  let employeeId = "";
-  let exists = true;
-
-  while (exists) {
-    const stamp = Date.now().toString().slice(-6);
-    const random = Math.random().toString(36).toUpperCase().slice(2, 5);
-    employeeId = `ARK-${stamp}${random}`;
-    // eslint-disable-next-line no-await-in-loop
-    exists = Boolean(await Employee.findOne({ employeeId }).select("_id").lean());
-  }
-
-  return employeeId;
-};
+const { generateEmployeeId } = require("../utils/employeeId");
 
 const sanitizeUser = (userDoc) => ({
   id: userDoc._id,
@@ -38,7 +24,8 @@ const login = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Email and password are required");
   }
 
-  const user = await User.findOne({ email: email.toLowerCase() }).select("+password");
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const user = await User.findOne({ email: normalizedEmail }).select("+password");
   if (!user || !(await user.comparePassword(password))) {
     throw new ApiError(401, "Invalid credentials");
   }
@@ -90,6 +77,7 @@ const registerAdmin = asyncHandler(async (req, res) => {
 
   await Employee.create({
     user: user._id,
+    employeeId: await generateEmployeeId(),
     firstName,
     lastName,
     department: "Administration",
@@ -111,7 +99,7 @@ const registerAdmin = asyncHandler(async (req, res) => {
  */
 const getMe = asyncHandler(async (req, res) => {
   let profile = await Employee.findOne({ user: req.user._id }).lean();
-  if (profile && !profile.employeeId) {
+  if (profile && (!profile.employeeId || !/^ARK-\d+$/i.test(String(profile.employeeId)))) {
     const employeeId = await generateEmployeeId();
     await Employee.findByIdAndUpdate(profile._id, { employeeId });
     profile = { ...profile, employeeId };

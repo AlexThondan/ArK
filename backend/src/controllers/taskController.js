@@ -17,6 +17,31 @@ const normalizeChecklists = (checklists = []) => {
     }));
 };
 
+const normalizeTaskUpdatePayload = (body = {}) => {
+  const payload = {};
+  [
+    "title",
+    "description",
+    "project",
+    "priority",
+    "status",
+    "progress",
+    "dueDate",
+    "assignedTo",
+    "assignedTeam"
+  ].forEach((key) => {
+    if (typeof body[key] !== "undefined") {
+      payload[key] = body[key];
+    }
+  });
+
+  if (typeof body.checklists !== "undefined") {
+    payload.checklists = normalizeChecklists(body.checklists);
+  }
+
+  return payload;
+};
+
 /**
  * @desc Create task and assign to employee
  * @route POST /api/tasks
@@ -281,6 +306,106 @@ const updateTaskStatus = asyncHandler(async (req, res) => {
 });
 
 /**
+ * @desc Update task (admin)
+ * @route PATCH /api/tasks/:id
+ * @access Admin
+ */
+const updateTask = asyncHandler(async (req, res) => {
+  const task = await Task.findById(req.params.id);
+  if (!task) {
+    throw new ApiError(404, "Task not found");
+  }
+
+  const payload = normalizeTaskUpdatePayload(req.body);
+
+  if (typeof payload.assignedTeam !== "undefined" && payload.assignedTeam) {
+    const team = await Team.findById(payload.assignedTeam).lean();
+    if (!team || !team.isActive) {
+      throw new ApiError(404, "Assigned team not found or inactive");
+    }
+
+    const memberIds = [
+      ...new Set(
+        (team.members || [])
+          .map((member) => member?.user?._id || member?.user)
+          .map((value) => (value ? value.toString() : ""))
+          .filter(Boolean)
+      )
+    ];
+
+    if (!memberIds.length) {
+      throw new ApiError(400, "Assigned team has no members");
+    }
+
+    task.assignedTeam = team._id;
+
+    if (payload.assignedTo) {
+      const assignee = await User.findById(payload.assignedTo).select("_id isActive").lean();
+      if (!assignee || !assignee.isActive) {
+        throw new ApiError(404, "Assigned employee not found or inactive");
+      }
+      task.assignedTo = assignee._id;
+    } else if (!memberIds.includes(task.assignedTo.toString())) {
+      const fallbackAssignee = await User.findOne({ _id: { $in: memberIds }, isActive: true })
+        .select("_id")
+        .lean();
+      if (!fallbackAssignee) {
+        throw new ApiError(400, "Assigned team has no active members");
+      }
+      task.assignedTo = fallbackAssignee._id;
+    }
+  } else if (typeof payload.assignedTo !== "undefined" && payload.assignedTo) {
+    const assignee = await User.findById(payload.assignedTo).select("_id isActive").lean();
+    if (!assignee || !assignee.isActive) {
+      throw new ApiError(404, "Assigned employee not found or inactive");
+    }
+    task.assignedTo = assignee._id;
+    if (typeof payload.assignedTeam !== "undefined" && !payload.assignedTeam) {
+      task.assignedTeam = null;
+    }
+  } else if (typeof payload.assignedTeam !== "undefined" && !payload.assignedTeam) {
+    task.assignedTeam = null;
+  }
+
+  ["title", "description", "project", "priority", "status", "dueDate"].forEach((field) => {
+    if (typeof payload[field] !== "undefined") {
+      task[field] = payload[field];
+    }
+  });
+
+  if (typeof payload.progress !== "undefined") {
+    task.progress = Number(payload.progress);
+  }
+
+  if (Array.isArray(payload.checklists)) {
+    task.checklists = payload.checklists;
+  }
+
+  if (task.status === "done") {
+    task.progress = 100;
+    task.employeeSubmission = task.employeeSubmission || {};
+    task.employeeSubmission.isChecked = true;
+    task.employeeSubmission.submittedAt = task.employeeSubmission.submittedAt || new Date();
+  }
+
+  await task.save();
+
+  await createNotification({
+    userId: task.assignedTo,
+    type: "task-assigned",
+    title: "Task assignment updated",
+    message: `${task.title} assignment details were updated.`,
+    link: "/employee/tasks",
+    metadata: { taskId: task._id }
+  });
+
+  res.status(200).json({
+    success: true,
+    data: task
+  });
+});
+
+/**
  * @desc Update one checklist item for a task
  * @route PATCH /api/tasks/:id/checklists
  * @access Private
@@ -411,6 +536,7 @@ module.exports = {
   createTask,
   getMyTasks,
   getAdminTasks,
+  updateTask,
   updateTaskStatus,
   updateTaskChecklist,
   uploadTaskAttachment

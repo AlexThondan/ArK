@@ -4,6 +4,7 @@ const Task = require("../models/Task");
 const Leave = require("../models/Leave");
 const Attendance = require("../models/Attendance");
 const Project = require("../models/Project");
+const Team = require("../models/Team");
 const asyncHandler = require("../utils/asyncHandler");
 const { startOfUtcDay } = require("../utils/date");
 const { detectBurnoutRisk } = require("../utils/predictive");
@@ -26,7 +27,8 @@ const getEmployeeDashboard = asyncHandler(async (req, res) => {
   sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 6);
   const dateBoundary = startOfUtcDay(sevenDaysAgo);
 
-  const [taskSummaryRows, leaveSummaryRows, attendanceHistory, profile, recentTasks] = await Promise.all([
+  const [taskSummaryRows, leaveSummaryRows, attendanceHistory, profile, recentTasks, teamRows, assignedTaskProjectIds] =
+    await Promise.all([
     Task.aggregate([
       { $match: { assignedTo: req.user._id } },
       { $group: { _id: "$status", count: { $sum: 1 } } }
@@ -41,8 +43,22 @@ const getEmployeeDashboard = asyncHandler(async (req, res) => {
       .sort({ dueDate: 1, createdAt: -1 })
       .limit(5)
       .select("title status priority dueDate progress")
-      .lean()
+      .lean(),
+    Team.find({ "members.user": req.user._id, isActive: true }).select("_id").lean(),
+    Task.distinct("project", { assignedTo: req.user._id, project: { $exists: true, $ne: null } })
   ]);
+
+  const teamIds = teamRows.map((row) => row._id);
+  const projectOrFilters = [{ members: req.user._id }];
+  if (teamIds.length) projectOrFilters.push({ assignedTeam: { $in: teamIds } });
+  if (assignedTaskProjectIds.length) projectOrFilters.push({ _id: { $in: assignedTaskProjectIds } });
+
+  const assignedProjects = await Project.find({ $or: projectOrFilters })
+    .populate("client", "company name logoUrl")
+    .sort({ updatedAt: -1 })
+    .limit(8)
+    .select("name code status progress endDate client assignmentType")
+    .lean();
 
   const taskSummary = summarizeTaskStatus(taskSummaryRows);
   const leaveSummary = leaveSummaryRows.reduce((acc, curr) => {
@@ -69,7 +85,8 @@ const getEmployeeDashboard = asyncHandler(async (req, res) => {
       },
       attendanceHistory,
       leaveSummary,
-      recentTasks
+      recentTasks,
+      assignedProjects
     }
   });
 });

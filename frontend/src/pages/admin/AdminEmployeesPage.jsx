@@ -12,7 +12,7 @@ import { formatCurrency, formatDate, resolveFileUrl } from "../../utils/format";
 const initialForm = {
   employeeId: "",
   email: "",
-  password: "",
+  password: "Emp@12345",
   firstName: "",
   lastName: "",
   phone: "",
@@ -223,8 +223,9 @@ const AdminEmployeesPage = () => {
   const handleCreate = async (event) => {
     event.preventDefault();
     try {
-      await employeeApi.create(mapFormToPayload(form));
-      toast.success("Employee created");
+      const response = await employeeApi.create(mapFormToPayload(form));
+      const createdPassword = response?.data?.credentials?.password || form.password || "Emp@12345";
+      toast.success(`Employee created. Login password: ${createdPassword}`);
       setShowCreate(false);
       setForm(initialForm);
       loadData();
@@ -285,7 +286,7 @@ const AdminEmployeesPage = () => {
           <h3>Employee Directory (Essential Details)</h3>
         </div>
         <div className="table-wrap">
-          <table>
+          <table className="table-unified">
             <thead>
               <tr>
                 <th>Photo</th>
@@ -297,7 +298,6 @@ const AdminEmployeesPage = () => {
                 <th>Department</th>
                 <th>Designation</th>
                 <th>Salary</th>
-                <th>Address</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -325,7 +325,6 @@ const AdminEmployeesPage = () => {
                   <td>{row.department}</td>
                   <td>{row.designation}</td>
                   <td>{formatCurrency(row.salary)}</td>
-                  <td>{[row.address?.city, row.address?.state, row.address?.country].filter(Boolean).join(", ") || "-"}</td>
                   <td>
                     <StatusBadge status={row.user?.isActive ? "active" : "inactive"} />
                   </td>
@@ -524,7 +523,6 @@ const AdminEmployeesPage = () => {
             Role
             <select value={form.role} onChange={(event) => setForm((prev) => ({ ...prev, role: event.target.value }))}>
               <option value="employee">Employee</option>
-              <option value="admin">Admin</option>
             </select>
           </label>
           <label className="full-width">
@@ -856,21 +854,6 @@ const AdminEmployeesPage = () => {
                 <p>Mode: {showView.workMode || "-"}</p>
               </article>
             </div>
-            <article className="card">
-              <h3>Address</h3>
-              <p>
-                {[
-                  showView.address?.line1,
-                  showView.address?.line2,
-                  showView.address?.city,
-                  showView.address?.state,
-                  showView.address?.country,
-                  showView.address?.postalCode
-                ]
-                  .filter(Boolean)
-                  .join(", ") || "-"}
-              </p>
-            </article>
           </div>
         ) : null}
       </FormModal>

@@ -1,40 +1,84 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { dashboardApi, employeeApi } from "../../api/hrmsApi";
+import { useNavigate } from "react-router-dom";
+import { Users, Briefcase, ListChecks, AlertTriangle, CalendarDays } from "lucide-react";
+import { attendanceApi, dashboardApi, employeeApi, leaveApi, projectApi, taskApi } from "../../api/hrmsApi";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import ErrorState from "../../components/common/ErrorState";
 import LineTrendChart from "../../components/charts/LineTrendChart";
 import DonutLeaveChart from "../../components/charts/DonutLeaveChart";
-import DataTable from "../../components/common/DataTable";
+import BarMetricsChart from "../../components/charts/BarMetricsChart";
+import FormModal from "../../components/common/FormModal";
 import useAuth from "../../hooks/useAuth";
-import { formatCurrency, formatDate, resolveFileUrl } from "../../utils/format";
+import { formatDate, resolveFileUrl } from "../../utils/format";
+
+const toIsoDate = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
+};
+
+const fmtTime = (value) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+};
 
 const AdminDashboardPage = () => {
+  const navigate = useNavigate();
   const { profile } = useAuth();
   const [state, setState] = useState({
     loading: true,
     error: "",
     data: null,
-    employees: []
+    employees: [],
+    projects: [],
+    tasks: [],
+    todayAttendance: [],
+    pendingLeaves: [],
+    togglingTaskId: ""
   });
-  const [expandedKpis, setExpandedKpis] = useState({});
-  const [expandedPulseCards, setExpandedPulseCards] = useState({});
-  const [expandedStats, setExpandedStats] = useState({});
+  const [infoModal, setInfoModal] = useState({ open: false, title: "", rows: [] });
+
+  const openInfo = (title, rows = []) => setInfoModal({ open: true, title, rows });
 
   const loadData = useCallback(async () => {
     try {
       setState((prev) => ({ ...prev, loading: true, error: "" }));
-      const [dashboardRes, employeeRes] = await Promise.all([
+      const todayIso = toIsoDate(new Date());
+
+      const [dashboardRes, employeeRes, projectRes, taskRes, attendanceRes, pendingLeavesRes] = await Promise.all([
         dashboardApi.admin(),
-        employeeApi.list({ limit: 200 })
+        employeeApi.list({ limit: 300 }),
+        projectApi.list({ limit: 50 }),
+        taskApi.admin({ limit: 100 }),
+        attendanceApi.admin({ limit: 500, dateFrom: todayIso, dateTo: todayIso }),
+        leaveApi.admin({ limit: 30, status: "pending" })
       ]);
+
       setState({
         loading: false,
         error: "",
         data: dashboardRes.data,
-        employees: employeeRes.data || []
+        employees: employeeRes.data || [],
+        projects: projectRes.data || [],
+        tasks: taskRes.data || [],
+        todayAttendance: attendanceRes.data || [],
+        pendingLeaves: pendingLeavesRes.data || [],
+        togglingTaskId: ""
       });
     } catch (error) {
-      setState({ loading: false, error: error.message, data: null, employees: [] });
+      setState({
+        loading: false,
+        error: error.message,
+        data: null,
+        employees: [],
+        projects: [],
+        tasks: [],
+        todayAttendance: [],
+        pendingLeaves: [],
+        togglingTaskId: ""
+      });
     }
   }, []);
 
@@ -42,90 +86,83 @@ const AdminDashboardPage = () => {
     loadData();
   }, [loadData]);
 
-  const employeeTrend = useMemo(
-    () =>
-      (state.employees || [])
-        .slice()
-        .sort((a, b) => new Date(b.joinDate || 0).getTime() - new Date(a.joinDate || 0).getTime())
-        .slice(0, 8),
-    [state.employees]
-  );
+  const toggleTaskDone = useCallback(async (task) => {
+    if (!task?._id) return;
+    try {
+      setState((prev) => ({ ...prev, togglingTaskId: task._id }));
+      const nextDone = task.status !== "done";
+      await taskApi.updateStatus(task._id, {
+        status: nextDone ? "done" : "todo",
+        progress: nextDone ? 100 : 0
+      });
+      await loadData();
+    } catch (error) {
+      setState((prev) => ({ ...prev, togglingTaskId: "" }));
+      openInfo("Task Update Failed", [error.message || "Unable to update task"]);
+    }
+  }, [loadData]);
+
+  const kpis = state.data?.kpis || {};
+  const totalEmployees = Number(kpis.totalEmployees || 0);
 
   const topPerformers = useMemo(() => {
-    const people = state.employees || [];
+    const employeesByUserId = new Map(
+      (state.employees || []).map((row) => [String(row.user?._id || ""), row])
+    );
     return (state.data?.performanceInsights || [])
       .map((item) => {
-        const match = people.find((employee) => {
-          const name = `${employee.firstName || ""} ${employee.lastName || ""}`.trim().toLowerCase();
-          return name && name === String(item.name || "").trim().toLowerCase();
-        });
+        const employee = employeesByUserId.get(String(item.userId || ""));
         return {
           ...item,
-          employeeId: match?.employeeId,
-          avatarUrl: match?.avatarUrl
+          firstName: employee?.firstName || item.name || "Unknown",
+          lastName: employee?.lastName || "",
+          department: item.department || employee?.department || "Unknown",
+          avatarUrl: employee?.avatarUrl,
+          employeeId: employee?.employeeId
         };
       })
       .sort((a, b) => Number(b.completionRate || 0) - Number(a.completionRate || 0))
-      .slice(0, 4);
+      .slice(0, 8);
   }, [state.data?.performanceInsights, state.employees]);
 
-  const todayLabel = useMemo(
-    () =>
-      new Date().toLocaleDateString("en-IN", {
-        weekday: "long",
-        month: "short",
-        day: "numeric",
-        year: "numeric"
-      }),
-    []
-  );
+  const attendanceSummary = useMemo(() => {
+    const base = { present: 0, "half-day": 0, "on-leave": 0 };
+    (state.todayAttendance || []).forEach((row) => {
+      if (Object.prototype.hasOwnProperty.call(base, row.status)) {
+        base[row.status] += 1;
+      }
+    });
 
-  const kpis = state.data?.kpis || {};
-  const departmentCount = useMemo(
-    () => new Set((state.employees || []).map((employee) => employee.department).filter(Boolean)).size,
-    [state.employees]
-  );
+    const tracked = base.present + base["half-day"] + base["on-leave"];
+    const absent = Math.max(totalEmployees - tracked, 0);
+    return {
+      present: base.present,
+      halfDay: base["half-day"],
+      onLeave: base["on-leave"],
+      absent
+    };
+  }, [state.todayAttendance, totalEmployees]);
 
-  const totalTasks = useMemo(
-    () => (state.data?.performanceInsights || []).reduce((sum, item) => sum + Number(item.totalTasks || 0), 0),
-    [state.data?.performanceInsights]
-  );
-
-  const completedTasks = useMemo(
-    () => (state.data?.performanceInsights || []).reduce((sum, item) => sum + Number(item.completedTasks || 0), 0),
-    [state.data?.performanceInsights]
-  );
-
-  const completionRate = totalTasks ? Math.round((completedTasks / totalTasks) * 100) : 0;
-  const pendingTasks = Math.max(totalTasks - completedTasks, 0);
-  const avgTaskLoad = kpis.totalEmployees ? (totalTasks / kpis.totalEmployees).toFixed(1) : "0.0";
-  const highRiskCount = (state.data?.overtimeSummary || []).filter((row) => row.burnoutRisk === "high").length;
-
-  const graphsAnalysisData = useMemo(() => {
-    const departmentMix = (state.data?.payrollByDepartment || [])
-      .filter((row) => Number(row.headcount || 0) > 0)
-      .slice(0, 6)
-      .map((row) => ({ name: row.department || "Unassigned", value: Number(row.headcount || 0) }));
-
-    if (departmentMix.length) return departmentMix;
-
-    return [
-      { name: "Employees", value: Number(kpis.totalEmployees || 0) },
-      { name: "Projects", value: Number(kpis.activeProjects || 0) },
-      { name: "Pending Leaves", value: Number(kpis.pendingLeaves || 0) },
-      { name: "Tasks", value: Number(totalTasks || 0) }
-    ].filter((item) => item.value > 0);
-  }, [state.data?.payrollByDepartment, kpis.activeProjects, kpis.pendingLeaves, kpis.totalEmployees, totalTasks]);
+  const attendanceDonutData = useMemo(() => {
+    const rows = [
+      { name: "Present", value: attendanceSummary.present, fill: "#22c55e" },
+      { name: "Half Day", value: attendanceSummary.halfDay, fill: "#f4c21a" },
+      { name: "On Leave", value: attendanceSummary.onLeave, fill: "#4b84f2" },
+      { name: "Absent", value: attendanceSummary.absent, fill: "#ef4444" }
+    ];
+    return rows.filter((row) => Number(row.value || 0) > 0);
+  }, [attendanceSummary.absent, attendanceSummary.halfDay, attendanceSummary.onLeave, attendanceSummary.present]);
 
   const attendanceTrendData = useMemo(() => {
     const rows = state.data?.attendanceRateChart || [];
-    return rows.map((row, index) => {
-      const windowRows = rows.slice(Math.max(0, index - 2), index + 1);
-      const movingAvg = windowRows.length
-        ? Math.round(windowRows.reduce((sum, item) => sum + Number(item.rate || 0), 0) / windowRows.length)
+    return rows.map((row, idx) => {
+      const window = rows.slice(Math.max(0, idx - 2), idx + 1);
+      const movingAvg = window.length
+        ? Math.round(window.reduce((sum, item) => sum + Number(item.rate || 0), 0) / window.length)
         : Number(row.rate || 0);
+
       return {
-        ...row,
+        date: row.date,
         rate: Number(row.rate || 0),
         movingAvg,
         target: 90
@@ -133,281 +170,334 @@ const AdminDashboardPage = () => {
     });
   }, [state.data?.attendanceRateChart]);
 
-  const toggleMapCard = (setter, key) => {
-    setter((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
+  const projectRows = useMemo(
+    () => (state.projects || []).slice().sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0)).slice(0, 8),
+    [state.projects]
+  );
+  const departmentHeadcountData = useMemo(() => {
+    const map = {};
+    (state.employees || []).forEach((row) => {
+      const key = row.department || "Unassigned";
+      map[key] = (map[key] || 0) + 1;
+    });
+    return Object.entries(map)
+      .map(([department, headcount]) => ({ department, headcount }))
+      .sort((a, b) => b.headcount - a.headcount)
+      .slice(0, 8);
+  }, [state.employees]);
+
+  const taskRows = useMemo(
+    () => (state.tasks || []).slice().sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0)).slice(0, 10),
+    [state.tasks]
+  );
+
+  const highRiskCount = (state.data?.overtimeSummary || []).filter((row) => row.burnoutRisk === "high").length;
+  const todayLabel = useMemo(
+    () => new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short", year: "numeric" }),
+    []
+  );
 
   if (state.loading) return <LoadingSpinner label="Loading admin dashboard..." />;
   if (state.error) return <ErrorState message={state.error} onRetry={loadData} />;
 
   return (
-    <section className="page-grid sequence-dashboard dashboard-modern">
-      <header className="card sequence-header">
-        <div className="sequence-user">
+    <section className="page-grid dash-pro">
+      <header className="dash-welcome-card">
+        <div className="dash-welcome-left">
           <div className="avatar-cell medium">
             {profile?.avatarUrl ? (
-              <img className="avatar-img" src={resolveFileUrl(profile.avatarUrl)} alt="Manager avatar" />
+              <img className="avatar-img" src={resolveFileUrl(profile.avatarUrl)} alt="avatar" />
             ) : (
               <span className="avatar-fallback">
-                {(profile?.firstName || "M").slice(0, 1)}
+                {(profile?.firstName || "A").slice(0, 1)}
                 {(profile?.lastName || "").slice(0, 1)}
               </span>
             )}
           </div>
           <div>
-            <h2>Manager Workspace</h2>
-            <p className="muted">{todayLabel}</p>
+            <h2 className="dash-welcome-title">Admin Dashboard</h2>
+            <p className="dash-welcome-sub">{todayLabel}</p>
           </div>
         </div>
-        <button className="btn btn-primary" type="button">
-          View Detail
-        </button>
+        <div className="dash-welcome-stats">
+          <div className="dash-mini-stat"><Users size={15} /><span><strong>{totalEmployees}</strong> Employees</span></div>
+          <div className="dash-mini-stat"><Briefcase size={15} /><span><strong>{kpis.activeProjects || 0}</strong> Projects</span></div>
+          <div className="dash-mini-stat"><CalendarDays size={15} /><span><strong>{kpis.pendingLeaves || 0}</strong> Pending Leaves</span></div>
+        </div>
       </header>
 
-      <section className="card sequence-alert">
-        <div>
-          <strong>Dear Manager</strong>
-          <p className="muted">Attendance, project delivery, and leave insights are synced in real-time.</p>
-        </div>
-      </section>
-
-      <section className="sequence-kpi-grid">
-        <article className="card sequence-kpi modern-kpi-card accent-blue">
-          <button className="box-expand-btn" type="button" onClick={() => toggleMapCard(setExpandedKpis, "employees")}>
-            {expandedKpis.employees ? "Hide" : "Insights"}
-          </button>
-          <small>Active Employees</small>
-          <h3>{kpis.totalEmployees || 0}</h3>
-          <div className="kpi-visual kpi-bars">
-            <span style={{ height: "34%" }} />
-            <span style={{ height: "48%" }} />
-            <span style={{ height: "68%" }} />
-            <span style={{ height: "84%" }} />
+      <section className="dash-kpi-row">
+        <article className="dash-kpi-card dash-kpi-blue" onClick={() => navigate("/admin/employees")}>
+          <div className="dash-kpi-icon-wrap blue"><Users size={20} /></div>
+          <div className="dash-kpi-info">
+            <span className="dash-kpi-label">Employees</span>
+            <h3 className="dash-kpi-value">{totalEmployees}</h3>
+            <span className="dash-kpi-change">Active workforce</span>
           </div>
-          {expandedKpis.employees ? (
-            <div className="box-insights">
-              <span>Departments: {departmentCount}</span>
-              <span>Top 8 shown in Team Pulse</span>
-              <span>High burnout risk: {highRiskCount}</span>
-            </div>
-          ) : null}
         </article>
-        <article className="card sequence-kpi modern-kpi-card accent-green">
-          <button className="box-expand-btn" type="button" onClick={() => toggleMapCard(setExpandedKpis, "projects")}>
-            {expandedKpis.projects ? "Hide" : "Insights"}
-          </button>
-          <small>Number of Projects</small>
-          <h3>{kpis.activeProjects || 0}</h3>
-          <div className="kpi-visual kpi-bars">
-            <span style={{ height: "24%" }} />
-            <span style={{ height: "42%" }} />
-            <span style={{ height: "62%" }} />
-            <span style={{ height: "78%" }} />
+        <article className="dash-kpi-card dash-kpi-green" onClick={() => navigate("/admin/projects")}>
+          <div className="dash-kpi-icon-wrap green"><Briefcase size={20} /></div>
+          <div className="dash-kpi-info">
+            <span className="dash-kpi-label">Active Projects</span>
+            <h3 className="dash-kpi-value">{kpis.activeProjects || 0}</h3>
+            <span className="dash-kpi-change">Current pipelines</span>
           </div>
-          {expandedKpis.projects ? (
-            <div className="box-insights">
-              <span>Avg task load: {avgTaskLoad} / employee</span>
-              <span>Pending leaves: {kpis.pendingLeaves || 0}</span>
-              <span>Utilization is actively tracked</span>
-            </div>
-          ) : null}
         </article>
-        <article className="card sequence-kpi modern-kpi-card accent-purple">
-          <button className="box-expand-btn" type="button" onClick={() => toggleMapCard(setExpandedKpis, "tasks")}>
-            {expandedKpis.tasks ? "Hide" : "Insights"}
-          </button>
-          <small>Number of Tasks</small>
-          <h3>{totalTasks || 0}</h3>
-          <div className="kpi-visual">
-            <svg className="kpi-mini-line" viewBox="0 0 100 34" preserveAspectRatio="none" aria-hidden="true">
-              <polyline points="0,26 16,24 32,18 48,20 64,12 80,14 100,8" />
-              <circle cx="80" cy="14" r="2.2" />
-              <circle cx="100" cy="8" r="2.2" />
-            </svg>
+        <article className="dash-kpi-card dash-kpi-purple" onClick={() => navigate("/admin/projects")}>
+          <div className="dash-kpi-icon-wrap purple"><ListChecks size={20} /></div>
+          <div className="dash-kpi-info">
+            <span className="dash-kpi-label">Tasks</span>
+            <h3 className="dash-kpi-value">{state.tasks.length}</h3>
+            <span className="dash-kpi-change">{state.tasks.filter((task) => task.status === "done").length} completed</span>
           </div>
-          {expandedKpis.tasks ? (
-            <div className="box-insights">
-              <span>Completed: {completedTasks}</span>
-              <span>Pending: {pendingTasks}</span>
-              <span>Avg completion: {completionRate}%</span>
-            </div>
-          ) : null}
         </article>
-        <article className="card sequence-kpi modern-kpi-card accent-orange">
-          <button className="box-expand-btn" type="button" onClick={() => toggleMapCard(setExpandedKpis, "target")}>
-            {expandedKpis.target ? "Hide" : "Insights"}
-          </button>
-          <small>Target Completed</small>
-          <h3>{completionRate}%</h3>
-          <div className="kpi-visual">
-            <div className="kpi-donut" style={{ "--value": Math.max(8, Math.min(completionRate, 100)) }}>
-              <span className="kpi-donut-value">{completionRate}%</span>
-            </div>
+        <article className="dash-kpi-card dash-kpi-orange" onClick={() => openInfo("Risk Alerts", [`High burnout risk employees: ${highRiskCount}`])}>
+          <div className="dash-kpi-icon-wrap orange"><AlertTriangle size={20} /></div>
+          <div className="dash-kpi-info">
+            <span className="dash-kpi-label">Risk Alerts</span>
+            <h3 className="dash-kpi-value">{highRiskCount}</h3>
+            <span className="dash-kpi-change">From attendance analytics</span>
           </div>
-          {expandedKpis.target ? (
-            <div className="box-insights">
-              <span>Target baseline: 90%</span>
-              <span>Gap: {Math.max(0, 90 - completionRate)}%</span>
-              <span>Current health: {completionRate >= 90 ? "On Track" : "Needs Push"}</span>
-            </div>
-          ) : null}
         </article>
       </section>
 
-      <section className="sequence-main-grid">
-        <article className="card sequence-list-card employee-scroll-panel">
-          <div className="card-head">
-            <h3>On Going Team Pulse</h3>
-          </div>
-          <div className="pulse-grid">
-            {employeeTrend.length ? (
-              employeeTrend.map((employee) => (
-                <article
-                  className={`pulse-card ${expandedPulseCards[employee.user?._id || employee._id] ? "expanded" : ""}`}
-                  key={employee.user?._id || employee._id}
-                >
-                  <button
-                    className="box-expand-btn small"
-                    type="button"
-                    onClick={() => toggleMapCard(setExpandedPulseCards, employee.user?._id || employee._id)}
-                  >
-                    {expandedPulseCards[employee.user?._id || employee._id] ? "Less" : "More"}
-                  </button>
-                  <div className="pulse-head">
-                    <div className="avatar-cell small">
-                      {employee.avatarUrl ? (
-                        <img
-                          className="avatar-img"
-                          src={resolveFileUrl(employee.avatarUrl)}
-                          alt={`${employee.firstName || ""} ${employee.lastName || ""}`.trim() || "Employee"}
-                        />
-                      ) : (
-                        <span className="avatar-fallback">
-                          {(employee.firstName || "E").slice(0, 1)}
-                          {(employee.lastName || "").slice(0, 1)}
-                        </span>
-                      )}
-                    </div>
-                    <div>
-                      <strong className="pulse-name">
-                        {employee.firstName} {employee.lastName}
-                      </strong>
-                      <p className="muted">{employee.designation || "-"}</p>
-                    </div>
-                  </div>
-                  <div className="pulse-meta">
-                    <span>ID: {employee.employeeId || "-"}</span>
-                    <span>Dept: {employee.department || "-"}</span>
-                    <span>Joined: {formatDate(employee.joinDate)}</span>
-                  </div>
-                  {expandedPulseCards[employee.user?._id || employee._id] ? (
-                    <div className="box-insights compact">
-                      <span>Email: {employee.user?.email || employee.personalEmail || "-"}</span>
-                      <span>Phone: {employee.phone || "-"}</span>
-                      <span>Work mode: {employee.workMode || "-"}</span>
-                      <span>Type: {employee.employmentType || "-"}</span>
-                    </div>
-                  ) : null}
-                </article>
-              ))
-            ) : (
-              <p className="muted">No employees found.</p>
-            )}
-          </div>
-        </article>
-
+      <section className="dash-two-col">
         <DonutLeaveChart
-          title="Graphs and Analysis"
-          data={graphsAnalysisData}
-          height={340}
-          innerRadius={60}
-          outerRadius={112}
-          variant="callout"
-          showLegend={false}
-          showTotal={false}
+          title="Today Attendance"
+          data={attendanceDonutData}
+          height={250}
+          innerRadius={52}
+          outerRadius={90}
+          variant="segmented-ring"
         />
-      </section>
-
-      <section className="sequence-main-grid">
         <LineTrendChart
-          title="Attendance Rate Trend"
+          title="Attendance Rate"
           data={attendanceTrendData}
           xKey="date"
           lines={[
-            { dataKey: "rate", color: "#2563EB", name: "Actual Rate", showArea: true },
-            { dataKey: "movingAvg", color: "#10B981", name: "Moving Avg" },
-            { dataKey: "target", color: "#EF4444", name: "Target", strokeDasharray: "5 5" }
+            { dataKey: "rate", color: "#0f5a73", name: "Rate %" },
+            { dataKey: "movingAvg", color: "#f97316", name: "Moving Avg %" },
+            { dataKey: "target", color: "#16a34a", name: "Target %" }
           ]}
         />
+      </section>
 
-        <article className="card sequence-performer-card">
+      <section className="dash-two-col">
+        <BarMetricsChart
+          title="Department Headcount"
+          data={departmentHeadcountData}
+          xKey="department"
+          bars={[{ dataKey: "headcount", color: "#4b84f2", name: "Headcount" }]}
+        />
+
+        <article className="card dash-table-card">
           <div className="card-head">
-            <h3>Top Performance</h3>
+            <h3>Pending Leave Approvals</h3>
+            <button type="button" className="zoho-btn-select" onClick={() => navigate("/admin/leaves")}>Leave Desk</button>
           </div>
-          <div className="sequence-performer-grid">
-            {topPerformers.length ? (
-              topPerformers.map((item, index) => (
-                <article key={`${item.name}-${index}`} className="sequence-performer-item modern-performer">
-                  <div className="avatar-cell medium">
-                    {item.avatarUrl ? (
-                      <img className="avatar-img" src={resolveFileUrl(item.avatarUrl)} alt={item.name} />
-                    ) : (
-                      <span className="avatar-fallback">{String(item.name || "E").slice(0, 1)}</span>
-                    )}
-                  </div>
-                  <strong>{item.name || "-"}</strong>
-                  <small className="muted">{item.department || "-"}</small>
-                  <span className="sequence-rank">{index + 1}</span>
-                </article>
-              ))
-            ) : (
-              <p className="muted">No performance insights yet.</p>
-            )}
+          <div className="table-wrap">
+            <table className="table-unified">
+              <thead>
+                <tr>
+                  <th scope="col">Employee</th>
+                  <th scope="col">Type</th>
+                  <th scope="col">Days</th>
+                  <th scope="col">From</th>
+                  <th scope="col">To</th>
+                </tr>
+              </thead>
+              <tbody>
+                {state.pendingLeaves.length ? (
+                  state.pendingLeaves.slice(0, 8).map((row) => (
+                    <tr key={row._id}>
+                      <td>{`${row.firstName || ""} ${row.lastName || ""}`.trim() || row.user?.email || "-"}</td>
+                      <td>{row.leaveType || "-"}</td>
+                      <td>{row.days || 0}</td>
+                      <td>{formatDate(row.startDate)}</td>
+                      <td>{formatDate(row.endDate)}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr><td colSpan="5"><p className="muted">No pending leave requests.</p></td></tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </article>
       </section>
 
-      <section className="card">
-        <div className="card-head">
-          <h3>Workload Risk Monitor</h3>
+      <section className="dash-two-col">
+        <article className="card dash-table-card">
+          <div className="card-head">
+            <h3>Recent Projects</h3>
+            <button type="button" className="zoho-btn-select" onClick={() => navigate("/admin/projects")}>View All</button>
+          </div>
+          <div className="table-wrap">
+            <table className="table-unified">
+              <thead>
+                <tr>
+                  <th scope="col">Code</th>
+                  <th scope="col">Project</th>
+                  <th scope="col">Client</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Progress</th>
+                  <th scope="col">Deadline</th>
+                </tr>
+              </thead>
+              <tbody>
+                {projectRows.length ? (
+                  projectRows.map((row) => (
+                    <tr key={row._id}>
+                      <td><strong>{row.code || "-"}</strong></td>
+                      <td>{row.name || "-"}</td>
+                      <td>{row.client?.company || row.client?.name || "-"}</td>
+                      <td><span className={`status-badge ${row.status === "completed" ? "success" : row.status === "active" ? "info" : "neutral"}`}>{row.status || "-"}</span></td>
+                      <td>{Number(row.progress || 0)}%</td>
+                      <td>{formatDate(row.endDate)}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr><td colSpan="6"><p className="muted">No projects yet.</p></td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article className="card dash-table-card">
+          <div className="card-head">
+            <h3>Recent Tasks</h3>
+            <button type="button" className="zoho-btn-select" onClick={() => navigate("/admin/projects")}>Manage</button>
+          </div>
+          <div className="table-wrap">
+            <table className="table-unified">
+              <thead>
+                <tr>
+                  <th scope="col">Done</th>
+                  <th scope="col">Task</th>
+                  <th scope="col">Assignee</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Due</th>
+                </tr>
+              </thead>
+              <tbody>
+                {taskRows.length ? (
+                  taskRows.map((row) => (
+                    <tr key={row._id}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          className="custom-checkbox"
+                          checked={row.status === "done"}
+                          onChange={() => toggleTaskDone(row)}
+                          disabled={state.togglingTaskId === row._id}
+                        />
+                      </td>
+                      <td>{row.title || "-"}</td>
+                      <td>{row.assignedTo?.email || "-"}</td>
+                      <td><span className={`status-badge ${row.status === "done" ? "success" : row.status === "in-progress" ? "info" : "neutral"}`}>{row.status || "-"}</span></td>
+                      <td>{formatDate(row.dueDate)}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr><td colSpan="5"><p className="muted">No tasks yet.</p></td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section className="dash-two-col">
+        <article className="card dash-table-card">
+          <div className="card-head">
+            <h3>Top Performers</h3>
+            <button type="button" className="zoho-btn-select" onClick={() => navigate("/admin/reports")}>Reports</button>
+          </div>
+          <div className="table-wrap">
+            <table className="table-unified">
+              <thead>
+                <tr>
+                  <th scope="col">Employee</th>
+                  <th scope="col">Employee ID</th>
+                  <th scope="col">Department</th>
+                  <th scope="col">Completed</th>
+                  <th scope="col">Total</th>
+                  <th scope="col">Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topPerformers.length ? (
+                  topPerformers.map((row, idx) => (
+                    <tr key={`${row.userId || idx}`}>
+                      <td>{`${row.firstName || ""} ${row.lastName || ""}`.trim() || "-"}</td>
+                      <td>{row.employeeId || "-"}</td>
+                      <td>{row.department || "-"}</td>
+                      <td>{row.completedTasks || 0}</td>
+                      <td>{row.totalTasks || 0}</td>
+                      <td>{row.completionRate || 0}%</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr><td colSpan="6"><p className="muted">No performance data yet.</p></td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article className="card dash-table-card">
+          <div className="card-head">
+            <h3>Today Clock Logs</h3>
+            <button type="button" className="zoho-btn-select" onClick={() => navigate("/admin/attendance")}>Attendance</button>
+          </div>
+          <div className="table-wrap">
+            <table className="table-unified">
+              <thead>
+                <tr>
+                  <th scope="col">Employee</th>
+                  <th scope="col">Department</th>
+                  <th scope="col">Check In</th>
+                  <th scope="col">Check Out</th>
+                  <th scope="col">Minutes</th>
+                  <th scope="col">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(state.todayAttendance || []).length ? (
+                  state.todayAttendance.slice(0, 10).map((row, idx) => (
+                    <tr key={`${row.user?._id || idx}-${row.date}`}>
+                      <td>{`${row.firstName || ""} ${row.lastName || ""}`.trim() || row.user?.email || "-"}</td>
+                      <td>{row.departmentSnapshot || "-"}</td>
+                      <td>{fmtTime(row.checkIn)}</td>
+                      <td>{fmtTime(row.checkOut)}</td>
+                      <td>{row.workDurationMinutes || 0}</td>
+                      <td><span className="status-badge neutral">{row.status || "-"}</span></td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr><td colSpan="6"><p className="muted">No attendance records today.</p></td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <FormModal
+        title={infoModal.title || "Details"}
+        open={infoModal.open}
+        onClose={() => setInfoModal({ open: false, title: "", rows: [] })}
+        width="520px"
+      >
+        <div className="insight-list">
+          {(infoModal.rows || []).length ? (
+            infoModal.rows.map((row, idx) => <p key={`${infoModal.title}-${idx}`}>{row}</p>)
+          ) : (
+            <p className="muted">No additional data available.</p>
+          )}
         </div>
-        <DataTable
-          rows={state.data?.overtimeSummary || []}
-          columns={[
-            { key: "userId", label: "User ID" },
-            { key: "burnoutRisk", label: "Burnout Risk", type: "status" }
-          ]}
-        />
-      </section>
-
-      <section className="card sequence-payroll-note">
-        <article className="modern-stat-card accent-blue">
-          <button className="box-expand-btn" type="button" onClick={() => toggleMapCard(setExpandedStats, "payroll")}>
-            {expandedStats.payroll ? "Hide" : "Insights"}
-          </button>
-          <small className="muted">Monthly Payroll</small>
-          <h3>{formatCurrency(kpis.totalMonthlyPayroll || 0)}</h3>
-          {expandedStats.payroll ? (
-            <div className="box-insights">
-              <span>Departments funded: {state.data?.payrollByDepartment?.length || 0}</span>
-              <span>Avg task load: {avgTaskLoad}</span>
-            </div>
-          ) : null}
-        </article>
-        <article className="modern-stat-card accent-orange">
-          <button className="box-expand-btn" type="button" onClick={() => toggleMapCard(setExpandedStats, "leave")}>
-            {expandedStats.leave ? "Hide" : "Insights"}
-          </button>
-          <small className="muted">Pending Leaves</small>
-          <h3>{kpis.pendingLeaves || 0}</h3>
-          {expandedStats.leave ? (
-            <div className="box-insights">
-              <span>High risk members: {highRiskCount}</span>
-              <span>Follow-up required for approvals</span>
-            </div>
-          ) : null}
-        </article>
-      </section>
+      </FormModal>
     </section>
   );
 };

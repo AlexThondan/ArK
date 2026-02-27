@@ -166,6 +166,14 @@ cd backend
 npm run seed:admin
 ```
 
+### 4) Seed Full Demo Data (Employees, Teams, Projects, Tasks, Attendance, Leaves)
+```bash
+cd backend
+npm run seed:demo
+```
+
+- Seeded employee login password (default): `Emp@12345`
+
 ## Docker Deployment
 
 ```bash

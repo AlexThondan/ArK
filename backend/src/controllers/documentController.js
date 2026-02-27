@@ -121,8 +121,55 @@ const getDocumentById = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * @desc Update document metadata
+ * @route PATCH /api/documents/:id
+ * @access Private
+ */
+const updateDocument = asyncHandler(async (req, res) => {
+  const document = await Document.findById(req.params.id);
+  if (!document) {
+    throw new ApiError(404, "Document not found");
+  }
+
+  const isOwner = document.user.toString() === req.user._id.toString();
+  const isAdmin = req.user.role === "admin";
+  if (!isOwner && !isAdmin) {
+    throw new ApiError(403, "Access denied");
+  }
+
+  const updatableFields = ["type", "visibility", "category", "description"];
+  updatableFields.forEach((field) => {
+    if (typeof req.body[field] !== "undefined") {
+      document[field] = req.body[field];
+    }
+  });
+
+  if (typeof req.body.expiresOn !== "undefined") {
+    document.expiresOn = req.body.expiresOn ? new Date(req.body.expiresOn) : undefined;
+  }
+
+  if (typeof req.body.tags !== "undefined") {
+    document.tags = Array.isArray(req.body.tags)
+      ? req.body.tags
+      : req.body.tags
+          .toString()
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean);
+  }
+
+  await document.save();
+
+  res.status(200).json({
+    success: true,
+    data: document
+  });
+});
+
 module.exports = {
   uploadDocument,
   getMyDocuments,
-  getDocumentById
+  getDocumentById,
+  updateDocument
 };

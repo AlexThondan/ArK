@@ -5,6 +5,7 @@ import { documentApi } from "../../api/hrmsApi";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import ErrorState from "../../components/common/ErrorState";
 import DataTable from "../../components/common/DataTable";
+import FormModal from "../../components/common/FormModal";
 import { formatDate, resolveFileUrl } from "../../utils/format";
 
 const initialUpload = {
@@ -21,6 +22,7 @@ const EmployeeDocumentsPage = () => {
   const [state, setState] = useState({ loading: true, error: "", rows: [] });
   const [upload, setUpload] = useState(initialUpload);
   const [filters, setFilters] = useState({ search: "", type: "", visibility: "" });
+  const [editDoc, setEditDoc] = useState(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -70,6 +72,27 @@ const EmployeeDocumentsPage = () => {
       expiringSoon
     };
   }, [state.rows]);
+
+  const saveDocumentEdit = async (event) => {
+    event.preventDefault();
+    if (!editDoc?._id) return;
+
+    try {
+      await documentApi.update(editDoc._id, {
+        type: editDoc.type,
+        visibility: editDoc.visibility,
+        category: editDoc.category,
+        description: editDoc.description,
+        tags: editDoc.tags,
+        expiresOn: editDoc.expiresOn
+      });
+      toast.success("Document updated");
+      setEditDoc(null);
+      loadData();
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
 
   if (state.loading) return <LoadingSpinner label="Loading documents..." />;
   if (state.error) return <ErrorState message={state.error} onRetry={loadData} />;
@@ -232,10 +255,91 @@ const EmployeeDocumentsPage = () => {
                   View
                 </a>
               )
+            },
+            {
+              key: "_id",
+              label: "Actions",
+              render: (_value, row) => (
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() =>
+                    setEditDoc({
+                      ...row,
+                      tags: Array.isArray(row.tags) ? row.tags.join(", ") : row.tags || "",
+                      expiresOn: row.expiresOn ? String(row.expiresOn).slice(0, 10) : ""
+                    })
+                  }
+                >
+                  Edit
+                </button>
+              )
             }
           ]}
         />
       </section>
+
+      <FormModal title="Edit Document" open={Boolean(editDoc)} onClose={() => setEditDoc(null)}>
+        <form className="form-grid" onSubmit={saveDocumentEdit}>
+          <label>
+            Type
+            <select
+              value={editDoc?.type || "other"}
+              onChange={(event) => setEditDoc((prev) => ({ ...(prev || {}), type: event.target.value }))}
+            >
+              <option value="resume">Resume</option>
+              <option value="certificate">Certificate</option>
+              <option value="id-proof">ID Proof</option>
+              <option value="payroll">Payroll</option>
+              <option value="policy">Policy</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label>
+            Visibility
+            <select
+              value={editDoc?.visibility || "private"}
+              onChange={(event) => setEditDoc((prev) => ({ ...(prev || {}), visibility: event.target.value }))}
+            >
+              <option value="private">Private</option>
+              <option value="hr-only">HR Only</option>
+              <option value="shared">Shared</option>
+            </select>
+          </label>
+          <label>
+            Category
+            <input
+              value={editDoc?.category || ""}
+              onChange={(event) => setEditDoc((prev) => ({ ...(prev || {}), category: event.target.value }))}
+            />
+          </label>
+          <label>
+            Expires On
+            <input
+              type="date"
+              value={editDoc?.expiresOn || ""}
+              onChange={(event) => setEditDoc((prev) => ({ ...(prev || {}), expiresOn: event.target.value }))}
+            />
+          </label>
+          <label className="full-width">
+            Description
+            <textarea
+              value={editDoc?.description || ""}
+              onChange={(event) => setEditDoc((prev) => ({ ...(prev || {}), description: event.target.value }))}
+            />
+          </label>
+          <label className="full-width">
+            Tags
+            <input
+              value={editDoc?.tags || ""}
+              onChange={(event) => setEditDoc((prev) => ({ ...(prev || {}), tags: event.target.value }))}
+            />
+          </label>
+          <button className="btn btn-primary" type="submit">
+            Save Changes
+          </button>
+        </form>
+      </FormModal>
     </section>
   );
 };

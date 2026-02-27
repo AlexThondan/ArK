@@ -1,21 +1,31 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { BriefcaseBusiness, ClipboardCheck, PlusCircle, Sparkles } from "lucide-react";
+import { BriefcaseBusiness, ClipboardCheck, PlusCircle, Sparkles, Trash2 } from "lucide-react";
 import { clientApi, employeeApi, projectApi, taskApi, teamApi } from "../../api/hrmsApi";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import ErrorState from "../../components/common/ErrorState";
 import FormModal from "../../components/common/FormModal";
+import ProgressPie3D from "../../components/charts/ProgressPie3D";
 import { formatCurrency, formatDate, resolveFileUrl } from "../../utils/format";
+
+const clampProgress = (value) => {
+  const parsed = Number(value || 0);
+  if (Number.isNaN(parsed)) return 0;
+  return Math.max(0, Math.min(100, parsed));
+};
 
 const initialProject = {
   name: "",
-  code: "",
   description: "",
   startDate: "",
   endDate: "",
   budget: "",
   client: "",
-  status: "planning"
+  status: "planning",
+  assignmentType: "individual",
+  members: [],
+  assignedTeam: "",
+  checklists: [{ title: "", description: "" }]
 };
 
 const initialTask = {
@@ -26,6 +36,8 @@ const initialTask = {
   project: "",
   dueDate: "",
   priority: "medium",
+  status: "todo",
+  progress: 0,
   description: "",
   checklists: [{ title: "", description: "" }]
 };
@@ -45,6 +57,8 @@ const AdminProjectsPage = () => {
   const [projectForm, setProjectForm] = useState(initialProject);
   const [taskForm, setTaskForm] = useState(initialTask);
   const [projectDrafts, setProjectDrafts] = useState({});
+  const [editingProjectId, setEditingProjectId] = useState("");
+  const [editingTaskId, setEditingTaskId] = useState("");
 
   const loadData = useCallback(async () => {
     try {
@@ -93,16 +107,113 @@ const AdminProjectsPage = () => {
     loadData();
   }, [loadData]);
 
+  const employeeMap = useMemo(
+    () =>
+      state.employees.reduce((acc, employee) => {
+        if (employee.user?._id) {
+          acc[employee.user._id] = employee;
+        }
+        return acc;
+      }, {}),
+    [state.employees]
+  );
+
+  const nextProjectCode = useMemo(() => {
+    const numericCodes = state.projects
+      .map((project) => Number(project.code))
+      .filter((value) => Number.isInteger(value) && value >= 0);
+    const maxCode = numericCodes.length ? Math.max(...numericCodes) : 0;
+    return String(maxCode + 1).padStart(3, "0");
+  }, [state.projects]);
+
+  const closeProjectModal = () => {
+    setShowProjectModal(false);
+    setEditingProjectId("");
+    setProjectForm(initialProject);
+  };
+
+  const closeTaskModal = () => {
+    setShowTaskModal(false);
+    setEditingTaskId("");
+    setTaskForm(initialTask);
+  };
+
+  const openProjectEditor = (project) => {
+    setEditingProjectId(project._id);
+    setProjectForm({
+      name: project.name || "",
+      description: project.description || "",
+      startDate: project.startDate ? String(project.startDate).slice(0, 10) : "",
+      endDate: project.endDate ? String(project.endDate).slice(0, 10) : "",
+      budget: String(project.budget || ""),
+      client: project.client?._id || project.client || "",
+      status: project.status || "planning",
+      assignmentType: project.assignmentType || "individual",
+      members: (project.members || []).map((member) => String(member?._id || member || "")).filter(Boolean),
+      assignedTeam: project.assignedTeam?._id || project.assignedTeam || "",
+      checklists: (project.checklists || []).length
+        ? project.checklists.map((item) => ({
+            title: item.title || "",
+            description: item.description || ""
+          }))
+        : [{ title: "", description: "" }]
+    });
+    setShowProjectModal(true);
+  };
+
+  const openTaskEditor = (task) => {
+    setEditingTaskId(task._id);
+    setTaskForm({
+      title: task.title || "",
+      assignMode: task.assignedTeam ? "team" : "employee",
+      assignedTo: task.assignedTo?._id || task.assignedTo || "",
+      assignedTeam: task.assignedTeam?._id || task.assignedTeam || "",
+      project: task.project?._id || task.project || "",
+      dueDate: task.dueDate ? String(task.dueDate).slice(0, 10) : "",
+      priority: task.priority || "medium",
+      status: task.status || "todo",
+      progress: clampProgress(task.progress || 0),
+      description: task.description || "",
+      checklists: (task.checklists || []).length
+        ? task.checklists.map((item) => ({
+            title: item.title || "",
+            description: item.description || "",
+            assignee: item.assignee?._id || item.assignee || ""
+          }))
+        : [{ title: "", description: "" }]
+    });
+    setShowTaskModal(true);
+  };
+
   const createProject = async (event) => {
     event.preventDefault();
     try {
-      await projectApi.create({
+      if (projectForm.assignmentType === "team" && !projectForm.assignedTeam) {
+        toast.error("Select a team for this project");
+        return;
+      }
+      if (projectForm.assignmentType === "individual" && !(projectForm.members || []).length) {
+        toast.error("Select at least one member for this project");
+        return;
+      }
+
+      const payload = {
         ...projectForm,
-        budget: Number(projectForm.budget || 0)
-      });
-      toast.success("Project created");
-      setProjectForm(initialProject);
-      setShowProjectModal(false);
+        assignedTeam: projectForm.assignmentType === "team" ? projectForm.assignedTeam : undefined,
+        members: projectForm.assignmentType === "individual" ? projectForm.members : [],
+        budget: Number(projectForm.budget || 0),
+        checklists: (projectForm.checklists || []).filter((row) => row.title?.trim())
+      };
+
+      if (editingProjectId) {
+        await projectApi.update(editingProjectId, payload);
+        toast.success("Project updated");
+      } else {
+        await projectApi.create(payload);
+        toast.success("Project created");
+      }
+
+      closeProjectModal();
       loadData();
     } catch (error) {
       toast.error(error.message);
@@ -134,23 +245,31 @@ const AdminProjectsPage = () => {
         project: taskForm.project || undefined,
         dueDate: taskForm.dueDate || undefined,
         priority: taskForm.priority,
+        status: taskForm.status || "todo",
+        progress: clampProgress(taskForm.progress || 0),
         description: taskForm.description,
         checklists: (taskForm.checklists || []).filter((row) => row.title?.trim())
       };
 
       if (taskForm.assignMode === "team") {
         payload.assignedTeam = taskForm.assignedTeam;
+        if (editingTaskId) payload.assignedTo = "";
       } else {
         payload.assignedTo = taskForm.assignedTo;
+        if (editingTaskId) payload.assignedTeam = "";
       }
 
-      const response = await taskApi.create(payload);
-      toast.success("Task assigned");
-      if (response.createdCount) {
-        toast.success(`${response.createdCount} tasks created for team members`);
+      if (editingTaskId) {
+        await taskApi.update(editingTaskId, payload);
+        toast.success("Assignment updated");
+      } else {
+        const response = await taskApi.create(payload);
+        toast.success("Task assigned");
+        if (response.createdCount) {
+          toast.success(`${response.createdCount} tasks created for team members`);
+        }
       }
-      setTaskForm(initialTask);
-      setShowTaskModal(false);
+      closeTaskModal();
       loadData();
     } catch (error) {
       toast.error(error.message);
@@ -162,7 +281,7 @@ const AdminProjectsPage = () => {
       const draft = projectDrafts[projectId];
       await projectApi.update(projectId, {
         status: draft.status,
-        progress: Number(draft.progress || 0)
+        progress: clampProgress(draft.progress || 0)
       });
       toast.success("Project updated");
       loadData();
@@ -171,16 +290,17 @@ const AdminProjectsPage = () => {
     }
   };
 
-  const employeeMap = useMemo(
-    () =>
-      state.employees.reduce((acc, employee) => {
-        if (employee.user?._id) {
-          acc[employee.user._id] = employee;
-        }
-        return acc;
-      }, {}),
-    [state.employees]
-  );
+  const deleteProject = async (project) => {
+    const confirmed = window.confirm(`Delete project "${project.name}"? Linked tasks will also be deleted.`);
+    if (!confirmed) return;
+    try {
+      await projectApi.remove(project._id);
+      toast.success("Project deleted successfully");
+      loadData();
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
 
   const statusBuckets = useMemo(() => {
     const buckets = {
@@ -204,6 +324,33 @@ const AdminProjectsPage = () => {
     return { activeProjects, completionRate, totalBudget };
   }, [state.projects, state.tasks]);
 
+  const renderProjectAssignees = (project) => {
+    if (project.assignmentType === "team") {
+      return <span>Team: {project.assignedTeam?.name || "-"}</span>;
+    }
+
+    const names = (project.members || [])
+      .slice(0, 3)
+      .map((member) => {
+        const userId = String(member?._id || member || "");
+        const employee = employeeMap[userId];
+        if (employee) {
+          return `${employee.firstName || ""} ${employee.lastName || ""}`.trim() || employee.employeeId;
+        }
+        return member?.email || "Member";
+      })
+      .filter(Boolean);
+
+    if (!names.length) return <span className="muted">No assignee</span>;
+
+    return (
+      <div className="assignee-stack">
+        <strong>{names.join(", ")}</strong>
+        {(project.members || []).length > names.length ? <small>+{project.members.length - names.length} more</small> : null}
+      </div>
+    );
+  };
+
   if (state.loading) return <LoadingSpinner label="Loading projects and tasks..." />;
   if (state.error) return <ErrorState message={state.error} onRetry={loadData} />;
 
@@ -212,11 +359,27 @@ const AdminProjectsPage = () => {
       <header className="page-head">
         <h1>Project & Task Management</h1>
         <div className="button-row">
-          <button className="btn btn-outline" type="button" onClick={() => setShowTaskModal(true)}>
+          <button
+            className="btn btn-outline"
+            type="button"
+            onClick={() => {
+              setEditingTaskId("");
+              setTaskForm(initialTask);
+              setShowTaskModal(true);
+            }}
+          >
             <ClipboardCheck size={14} />
             Assign Task
           </button>
-          <button className="btn btn-primary" type="button" onClick={() => setShowProjectModal(true)}>
+          <button
+            className="btn btn-primary"
+            type="button"
+            onClick={() => {
+              setEditingProjectId("");
+              setProjectForm(initialProject);
+              setShowProjectModal(true);
+            }}
+          >
             <PlusCircle size={14} />
             Create Project
           </button>
@@ -252,18 +415,20 @@ const AdminProjectsPage = () => {
           <h3>Projects</h3>
         </div>
         <div className="table-wrap">
-          <table>
+          <table className="table-unified">
             <thead>
               <tr>
                 <th>Project</th>
                 <th>Code</th>
+                <th>Assigned To</th>
                 <th>Client</th>
                 <th>Budget</th>
+                <th>Checklist</th>
                 <th>Status</th>
                 <th>Progress</th>
                 <th>Start</th>
                 <th>End</th>
-                <th>Save</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -271,11 +436,16 @@ const AdminProjectsPage = () => {
                 <tr key={project._id}>
                   <td>{project.name}</td>
                   <td>{project.code}</td>
+                  <td>{renderProjectAssignees(project)}</td>
                   <td>
                     <div className="list-identity">
                       <div className="avatar-cell small">
                         {project.client?.logoUrl ? (
-                          <img className="avatar-img" src={resolveFileUrl(project.client.logoUrl)} alt={project.client?.company || "Client"} />
+                          <img
+                            className="avatar-img"
+                            src={resolveFileUrl(project.client.logoUrl)}
+                            alt={project.client?.company || "Client"}
+                          />
                         ) : (
                           <span className="avatar-fallback">{(project.client?.company || "C").slice(0, 1)}</span>
                         )}
@@ -286,6 +456,13 @@ const AdminProjectsPage = () => {
                     </div>
                   </td>
                   <td>{formatCurrency(project.budget || 0)}</td>
+                  <td>
+                    {(project.checklists || []).length ? (
+                      <span>{(project.checklists || []).length} item(s)</span>
+                    ) : (
+                      <span className="muted">-</span>
+                    )}
+                  </td>
                   <td>
                     <select
                       value={projectDrafts[project._id]?.status || project.status}
@@ -306,22 +483,8 @@ const AdminProjectsPage = () => {
                     </select>
                   </td>
                   <td>
-                    <div className="progress-edit">
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={projectDrafts[project._id]?.progress ?? project.progress ?? 0}
-                        onChange={(event) =>
-                          setProjectDrafts((prev) => ({
-                            ...prev,
-                            [project._id]: {
-                              ...(prev[project._id] || {}),
-                              progress: Number(event.target.value)
-                            }
-                          }))
-                        }
-                      />
+                    <div className="progress-edit pie-edit">
+                      <ProgressPie3D value={projectDrafts[project._id]?.progress ?? project.progress ?? 0} />
                       <input
                         type="number"
                         min="0"
@@ -332,7 +495,7 @@ const AdminProjectsPage = () => {
                             ...prev,
                             [project._id]: {
                               ...(prev[project._id] || {}),
-                              progress: Number(event.target.value)
+                              progress: clampProgress(event.target.value)
                             }
                           }))
                         }
@@ -342,9 +505,18 @@ const AdminProjectsPage = () => {
                   <td>{formatDate(project.startDate)}</td>
                   <td>{formatDate(project.endDate)}</td>
                   <td>
-                    <button className="btn btn-primary" type="button" onClick={() => saveProjectProgress(project._id)}>
-                      Save
-                    </button>
+                    <div className="button-row">
+                      <button className="btn btn-outline" type="button" onClick={() => openProjectEditor(project)}>
+                        Edit
+                      </button>
+                      <button className="btn btn-primary" type="button" onClick={() => saveProjectProgress(project._id)}>
+                        Save
+                      </button>
+                      <button className="btn btn-danger" type="button" onClick={() => deleteProject(project)}>
+                        <Trash2 size={14} />
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -375,8 +547,15 @@ const AdminProjectsPage = () => {
                         {employee?.employeeId ? `(${employee.employeeId})` : ""}
                       </small>
                       {task.assignedTeam?.name ? <small>Team: {task.assignedTeam.name}</small> : null}
-                      {task.checklists?.length ? <small>Checklist: {task.checklists.filter((item) => item.isChecked).length}/{task.checklists.length}</small> : null}
+                      {task.checklists?.length ? (
+                        <small>
+                          Checklist: {task.checklists.filter((item) => item.isChecked).length}/{task.checklists.length}
+                        </small>
+                      ) : null}
                       <small>{formatDate(task.dueDate)}</small>
+                      <button className="btn btn-outline" type="button" onClick={() => openTaskEditor(task)}>
+                        Edit Assignment
+                      </button>
                     </article>
                   );
                 })}
@@ -386,7 +565,11 @@ const AdminProjectsPage = () => {
         </div>
       </section>
 
-      <FormModal title="Create Project" open={showProjectModal} onClose={() => setShowProjectModal(false)}>
+      <FormModal
+        title={editingProjectId ? "Edit Project" : "Create Project"}
+        open={showProjectModal}
+        onClose={closeProjectModal}
+      >
         <form className="form-grid" onSubmit={createProject}>
           <label>
             Name
@@ -397,13 +580,64 @@ const AdminProjectsPage = () => {
             />
           </label>
           <label>
-            Code
-            <input
-              required
-              value={projectForm.code}
-              onChange={(event) => setProjectForm((prev) => ({ ...prev, code: event.target.value }))}
-            />
+            Project Code
+            <input value={editingProjectId ? state.projects.find((row) => row._id === editingProjectId)?.code || "-" : nextProjectCode} disabled />
           </label>
+          <label>
+            Assignment Type
+            <select
+              value={projectForm.assignmentType}
+              onChange={(event) =>
+                setProjectForm((prev) => ({
+                  ...prev,
+                  assignmentType: event.target.value,
+                  members: [],
+                  assignedTeam: ""
+                }))
+              }
+            >
+              <option value="individual">Individual</option>
+              <option value="team">Team</option>
+            </select>
+          </label>
+          {projectForm.assignmentType === "individual" ? (
+            <label className="full-width">
+              Assign Members
+              <select
+                multiple
+                size={5}
+                value={projectForm.members}
+                onChange={(event) =>
+                  setProjectForm((prev) => ({
+                    ...prev,
+                    members: Array.from(event.target.selectedOptions, (option) => option.value)
+                  }))
+                }
+              >
+                {state.employees.map((employee) => (
+                  <option key={employee.user?._id} value={employee.user?._id}>
+                    {employee.firstName} {employee.lastName} {employee.employeeId ? `(${employee.employeeId})` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <label>
+              Assign Team
+              <select
+                required
+                value={projectForm.assignedTeam}
+                onChange={(event) => setProjectForm((prev) => ({ ...prev, assignedTeam: event.target.value }))}
+              >
+                <option value="">Select team</option>
+                {state.teams.map((team) => (
+                  <option key={team._id} value={team._id} disabled={!(team.members || []).length}>
+                    {team.name} ({team.code}) {(team.members || []).length ? `- ${team.members.length} member(s)` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label>
             Client
             <select
@@ -461,13 +695,72 @@ const AdminProjectsPage = () => {
               onChange={(event) => setProjectForm((prev) => ({ ...prev, description: event.target.value }))}
             />
           </label>
+          <div className="full-width checklist-wrap">
+            <div className="card-head">
+              <h3>Project Checklist Template</h3>
+              <button
+                className="btn btn-outline"
+                type="button"
+                onClick={() =>
+                  setProjectForm((prev) => ({
+                    ...prev,
+                    checklists: [...(prev.checklists || []), { title: "", description: "" }]
+                  }))
+                }
+              >
+                Add Checkbox
+              </button>
+            </div>
+            <div className="checklist-stack">
+              {(projectForm.checklists || []).map((item, index) => (
+                <div className="checklist-item" key={index}>
+                  <input
+                    placeholder="Checklist title"
+                    value={item.title}
+                    onChange={(event) =>
+                      setProjectForm((prev) => ({
+                        ...prev,
+                        checklists: prev.checklists.map((row, rowIndex) =>
+                          rowIndex === index ? { ...row, title: event.target.value } : row
+                        )
+                      }))
+                    }
+                  />
+                  <input
+                    placeholder="Description (optional)"
+                    value={item.description}
+                    onChange={(event) =>
+                      setProjectForm((prev) => ({
+                        ...prev,
+                        checklists: prev.checklists.map((row, rowIndex) =>
+                          rowIndex === index ? { ...row, description: event.target.value } : row
+                        )
+                      }))
+                    }
+                  />
+                  <button
+                    className="btn btn-danger"
+                    type="button"
+                    onClick={() =>
+                      setProjectForm((prev) => ({
+                        ...prev,
+                        checklists: prev.checklists.filter((_, rowIndex) => rowIndex !== index)
+                      }))
+                    }
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
           <button className="btn btn-primary" type="submit">
-            Save Project
+            {editingProjectId ? "Update Project" : "Save Project"}
           </button>
         </form>
       </FormModal>
 
-      <FormModal title="Assign Task" open={showTaskModal} onClose={() => setShowTaskModal(false)}>
+      <FormModal title={editingTaskId ? "Edit Assignment" : "Assign Task"} open={showTaskModal} onClose={closeTaskModal}>
         <form className="form-grid" onSubmit={createTask}>
           <label>
             Task Title
@@ -521,7 +814,8 @@ const AdminProjectsPage = () => {
               <option value="">Select team</option>
               {state.teams.map((team) => (
                 <option key={team._id} value={team._id} disabled={!(team.members || []).length}>
-                  {team.name} ({team.code}) {(team.members || []).length ? `- ${team.members.length} member(s)` : "- No members"}
+                  {team.name} ({team.code}){" "}
+                  {(team.members || []).length ? `- ${team.members.length} member(s)` : "- No members"}
                 </option>
               ))}
             </select>
@@ -530,7 +824,25 @@ const AdminProjectsPage = () => {
             Project
             <select
               value={taskForm.project}
-              onChange={(event) => setTaskForm((prev) => ({ ...prev, project: event.target.value }))}
+              onChange={(event) => {
+                const selectedProject = state.projects.find((project) => project._id === event.target.value);
+                const seededChecklists = (selectedProject?.checklists || []).map((item) => ({
+                  title: item.title || "",
+                  description: item.description || ""
+                }));
+
+                setTaskForm((prev) => ({
+                  ...prev,
+                  project: event.target.value,
+                  assignMode: selectedProject?.assignmentType === "team" ? "team" : prev.assignMode,
+                  assignedTeam:
+                    selectedProject?.assignmentType === "team" ? selectedProject?.assignedTeam?._id || "" : prev.assignedTeam,
+                  checklists:
+                    seededChecklists.length && !(prev.checklists || []).some((row) => row.title?.trim())
+                      ? seededChecklists
+                      : prev.checklists
+                }));
+              }}
             >
               <option value="">None</option>
               {state.projects.map((project) => (
@@ -551,6 +863,28 @@ const AdminProjectsPage = () => {
               <option value="high">High</option>
               <option value="critical">Critical</option>
             </select>
+          </label>
+          <label>
+            Status
+            <select
+              value={taskForm.status}
+              onChange={(event) => setTaskForm((prev) => ({ ...prev, status: event.target.value }))}
+            >
+              <option value="todo">To Do</option>
+              <option value="in-progress">In Progress</option>
+              <option value="blocked">Blocked</option>
+              <option value="done">Done</option>
+            </select>
+          </label>
+          <label>
+            Progress (%)
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={taskForm.progress}
+              onChange={(event) => setTaskForm((prev) => ({ ...prev, progress: clampProgress(event.target.value) }))}
+            />
           </label>
           <label>
             Deadline
@@ -583,9 +917,9 @@ const AdminProjectsPage = () => {
                 Add Checkbox
               </button>
             </div>
-            <div className="form-grid">
+            <div className="checklist-stack">
               {(taskForm.checklists || []).map((item, index) => (
-                <div className="checklist-item" key={`${item.title}-${index}`}>
+                <div className="checklist-item" key={index}>
                   <input
                     placeholder="Checklist title"
                     value={item.title}
@@ -627,7 +961,7 @@ const AdminProjectsPage = () => {
             </div>
           </div>
           <button className="btn btn-primary" type="submit">
-            Assign Task
+            {editingTaskId ? "Save Assignment" : "Assign Task"}
           </button>
         </form>
       </FormModal>

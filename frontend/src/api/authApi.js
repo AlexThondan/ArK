@@ -5,8 +5,8 @@ export const authApi = {
     const { data } = await client.post("/auth/login", payload);
     return data;
   },
-  me: async () => {
-    const { data } = await client.get("/auth/me");
+  me: async (config = {}) => {
+    const { data } = await client.get("/auth/me", config);
     return data;
   },
   changePassword: async (payload) => {

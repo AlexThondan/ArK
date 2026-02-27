@@ -1,4 +1,5 @@
 const { Parser } = require("json2csv");
+const mongoose = require("mongoose");
 const Attendance = require("../models/Attendance");
 const Employee = require("../models/Employee");
 const ApiError = require("../utils/ApiError");
@@ -9,6 +10,40 @@ const { startOfUtcDay, diffInMinutes } = require("../utils/date");
 const getDepartmentSnapshot = async (userId) => {
   const employee = await Employee.findOne({ user: userId }).select("department");
   return employee?.department || "Unknown";
+};
+
+const parseUtcDay = (value, fieldName) => {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new ApiError(400, `${fieldName} is invalid`);
+  }
+  return startOfUtcDay(parsed);
+};
+
+const parseCheckOutDateTime = ({ date, checkOutTime }) => {
+  if (!checkOutTime) return null;
+
+  // Allow both HH:mm and full datetime values.
+  if (/^\d{2}:\d{2}$/.test(checkOutTime)) {
+    const [hours, minutes] = checkOutTime.split(":").map(Number);
+    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+      throw new ApiError(400, "checkOutTime must be in HH:mm format");
+    }
+    const [year, month, day] = String(date)
+      .split("-")
+      .map((value) => Number(value));
+    const parsed = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
+    if (Number.isNaN(parsed.getTime())) {
+      throw new ApiError(400, "checkOutTime is invalid");
+    }
+    return parsed;
+  }
+
+  const parsed = new Date(checkOutTime);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new ApiError(400, "checkOutTime is invalid");
+  }
+  return parsed;
 };
 
 /**
@@ -50,20 +85,43 @@ const checkIn = asyncHandler(async (req, res) => {
  * @access Employee
  */
 const checkOut = asyncHandler(async (req, res) => {
-  const date = startOfUtcDay(new Date());
+  const requestedDate = req.body?.date;
+  const requestedCheckOutTime = req.body?.checkOutTime;
+  const requestedNotes = req.body?.notes;
+
+  if (requestedDate && !requestedCheckOutTime) {
+    throw new ApiError(400, "checkOutTime is required when date is provided");
+  }
+
+  const date = requestedDate ? parseUtcDay(requestedDate, "date") : startOfUtcDay(new Date());
   const record = await Attendance.findOne({ user: req.user._id, date });
 
   if (!record?.checkIn) {
     throw new ApiError(400, "Check-in required before check-out");
   }
   if (record.checkOut) {
-    throw new ApiError(409, "Already checked out today");
+    throw new ApiError(409, "Already checked out for the selected date");
   }
 
-  const checkOutTime = new Date();
+  const fallbackDateInput = date.toISOString().slice(0, 10);
+  const checkOutTime = parseCheckOutDateTime({
+    date: requestedDate || fallbackDateInput,
+    checkOutTime: requestedCheckOutTime
+  }) || new Date();
+
+  if (startOfUtcDay(checkOutTime).getTime() !== date.getTime()) {
+    throw new ApiError(400, "checkOutTime must belong to the selected date");
+  }
+  if (checkOutTime <= record.checkIn) {
+    throw new ApiError(400, "checkOutTime must be after check-in");
+  }
+
   record.checkOut = checkOutTime;
   record.workDurationMinutes = diffInMinutes(record.checkIn, checkOutTime);
   record.status = record.workDurationMinutes >= 240 ? "present" : "half-day";
+  if (typeof requestedNotes !== "undefined") {
+    record.notes = String(requestedNotes || "").trim();
+  }
   await record.save();
 
   res.status(200).json({
@@ -105,10 +163,13 @@ const getMyAttendance = asyncHandler(async (req, res) => {
   });
 });
 
-const buildAdminAttendancePipeline = ({ department, status, dateFrom, dateTo }) => {
+const buildAdminAttendancePipeline = ({ department, status, dateFrom, dateTo, userId }) => {
   const match = {};
   if (department) match.departmentSnapshot = department;
   if (status) match.status = status;
+  if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+    match.user = new mongoose.Types.ObjectId(userId);
+  }
   if (dateFrom || dateTo) {
     match.date = {};
     if (dateFrom) match.date.$gte = new Date(dateFrom);
@@ -160,6 +221,9 @@ const buildAdminAttendancePipeline = ({ department, status, dateFrom, dateTo }) 
 const getAllAttendance = asyncHandler(async (req, res) => {
   const { page = 1, limit = 20 } = req.query;
   const { skip, limit: parsedLimit, page: parsedPage } = buildPagination(page, limit);
+  if (req.query.userId && !mongoose.Types.ObjectId.isValid(req.query.userId)) {
+    throw new ApiError(400, "userId is invalid");
+  }
 
   const pipeline = buildAdminAttendancePipeline(req.query);
   const [items, countDoc] = await Promise.all([
@@ -191,6 +255,10 @@ const getAllAttendance = asyncHandler(async (req, res) => {
  * @access Admin
  */
 const exportAttendanceCsv = asyncHandler(async (req, res) => {
+  if (req.query.userId && !mongoose.Types.ObjectId.isValid(req.query.userId)) {
+    throw new ApiError(400, "userId is invalid");
+  }
+
   const records = await Attendance.aggregate([
     ...buildAdminAttendancePipeline(req.query),
     { $sort: { date: -1 } }

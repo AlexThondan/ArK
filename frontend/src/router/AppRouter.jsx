@@ -11,6 +11,7 @@ import EmployeeTasksPage from "../pages/employee/EmployeeTasksPage";
 import EmployeeDocumentsPage from "../pages/employee/EmployeeDocumentsPage";
 import EmployeeTeamsPage from "../pages/employee/EmployeeTeamsPage";
 import AdminDashboardPage from "../pages/admin/AdminDashboardPage";
+import AdminHrDashboardPage from "../pages/admin/AdminHrDashboardPage";
 import AdminEmployeesPage from "../pages/admin/AdminEmployeesPage";
 import AdminTeamsPage from "../pages/admin/AdminTeamsPage";
 import AdminLeavePage from "../pages/admin/AdminLeavePage";
@@ -18,7 +19,9 @@ import AdminAttendancePage from "../pages/admin/AdminAttendancePage";
 import AdminProjectsPage from "../pages/admin/AdminProjectsPage";
 import AdminClientsPage from "../pages/admin/AdminClientsPage";
 import AdminReportsPage from "../pages/admin/AdminReportsPage";
+import AdminProfilePage from "../pages/admin/AdminProfilePage";
 import SettingsPage from "../pages/SettingsPage";
+import ChatPage from "../pages/chat/ChatPage";
 
 const RoleRedirect = () => {
   const { user } = useAuth();
@@ -106,6 +109,14 @@ const AppRouter = () => (
         }
       />
       <Route
+        path="admin/hr-dashboard"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <AdminHrDashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="admin/employees"
         element={
           <ProtectedRoute allowedRoles={["admin"]}>
@@ -154,6 +165,14 @@ const AppRouter = () => (
         }
       />
       <Route
+        path="admin/profile"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <AdminProfilePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="admin/reports"
         element={
           <ProtectedRoute allowedRoles={["admin"]}>
@@ -162,6 +181,7 @@ const AppRouter = () => (
         }
       />
       <Route path="settings" element={<SettingsPage />} />
+      <Route path="chat" element={<ChatPage />} />
     </Route>
 
     <Route path="*" element={<Navigate to="/" replace />} />

@@ -21,7 +21,7 @@ export const employeeApi = {
 
 export const attendanceApi = {
   checkIn: async () => (await client.post("/attendance/check-in")).data,
-  checkOut: async () => (await client.post("/attendance/check-out")).data,
+  checkOut: async (payload) => (await client.post("/attendance/check-out", payload || {})).data,
   my: async (params) => (await client.get("/attendance/me", { params })).data,
   admin: async (params) => (await client.get("/attendance/admin", { params })).data,
   exportCsvUrl: (params = {}) => {
@@ -44,6 +44,7 @@ export const taskApi = {
   my: async (params) => (await client.get("/tasks/me", { params })).data,
   admin: async (params) => (await client.get("/tasks/admin", { params })).data,
   create: async (payload) => (await client.post("/tasks", payload)).data,
+  update: async (id, payload) => (await client.patch(`/tasks/${id}`, payload)).data,
   updateStatus: async (id, payload) => (await client.patch(`/tasks/${id}/status`, payload)).data,
   updateChecklist: async (id, payload) => (await client.patch(`/tasks/${id}/checklists`, payload)).data,
   uploadAttachment: async (id, file) => {
@@ -66,13 +67,15 @@ export const documentApi = {
     if (userId) formData.append("userId", userId);
     return (await client.post("/documents/upload", formData)).data;
   },
-  my: async (params) => (await client.get("/documents/me", { params })).data
+  my: async (params) => (await client.get("/documents/me", { params })).data,
+  update: async (id, payload) => (await client.patch(`/documents/${id}`, payload)).data
 };
 
 export const projectApi = {
   list: async (params) => (await client.get("/projects", { params })).data,
   create: async (payload) => (await client.post("/projects", payload)).data,
-  update: async (id, payload) => (await client.patch(`/projects/${id}`, payload)).data
+  update: async (id, payload) => (await client.patch(`/projects/${id}`, payload)).data,
+  remove: async (id) => (await client.delete(`/projects/${id}`)).data
 };
 
 export const clientApi = {
@@ -102,4 +105,12 @@ export const notificationApi = {
   list: async (params) => (await client.get("/notifications", { params })).data,
   markRead: async (id) => (await client.patch(`/notifications/${id}/read`)).data,
   markAllRead: async () => (await client.patch("/notifications/read-all")).data
+};
+
+export const chatApi = {
+  contacts: async (params) => (await client.get("/chat/contacts", { params })).data,
+  inbox: async (params) => (await client.get("/chat/inbox", { params })).data,
+  messages: async (params) => (await client.get("/chat/messages", { params })).data,
+  send: async (payload) => (await client.post("/chat/messages", payload)).data,
+  markRead: async (withUserId) => (await client.patch("/chat/read", { with: withUserId })).data
 };

@@ -11,11 +11,11 @@ const DataTable = ({ columns, rows, emptyText = "No records found" }) => {
 
   return (
     <div className="table-wrap">
-      <table>
+      <table className="table-unified">
         <thead>
           <tr>
             {columns.map((column) => (
-              <th key={column.key}>{column.label}</th>
+              <th key={column.key} scope="col">{column.label}</th>
             ))}
           </tr>
         </thead>

@@ -157,15 +157,17 @@ const AdminReportsPage = () => {
           data={state.productivity}
           xKey="department"
           bars={[
-            { dataKey: "completionRate", color: "#2EC5BD" },
-            { dataKey: "inProgressTasks", color: "#16C79A" }
+            { dataKey: "completionRate", color: "#f97316", name: "Completion %" }
           ]}
+          variant="pill-dual"
         />
         <LineTrendChart
           title="Leave Trends"
           data={leaveChartData}
           xKey="period"
-          lines={[{ dataKey: "count", color: "#16C79A" }]}
+          lines={[
+            { dataKey: "count", color: "#0f5a73", name: "Leave Count", showArea: true }
+          ]}
         />
       </div>
 

@@ -1,115 +1,159 @@
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+const paletteDefault = [
+  "#0f5a73",
+  "#22c55e",
+  "#f4c21a",
+  "#ef4444",
+  "#4b84f2",
+  "#f28a47",
+  "#6f96a6",
+  "#99b7c3"
+];
 
-const palette = ["#2563EB", "#10B981", "#F59E0B", "#8B5CF6", "#EF4444", "#06B6D4"];
-const RADIAN = Math.PI / 180;
+const toNumber = (value) => {
+  const parsed = Number(value || 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
 
-const renderCalloutLabel = ({ cx, cy, midAngle, outerRadius, fill, value }) => {
-  const direction = Math.cos(-midAngle * RADIAN) >= 0 ? 1 : -1;
-  const startX = cx + (outerRadius + 2) * Math.cos(-midAngle * RADIAN);
-  const startY = cy + (outerRadius + 2) * Math.sin(-midAngle * RADIAN);
-  const midX = cx + (outerRadius + 22) * Math.cos(-midAngle * RADIAN);
-  const midY = cy + (outerRadius + 22) * Math.sin(-midAngle * RADIAN);
-  const endX = midX + direction * 28;
-  const endY = midY;
-  const boxWidth = 28;
-  const boxHeight = 18;
-  const boxX = direction > 0 ? endX : endX - boxWidth;
-  const boxY = endY - boxHeight / 2;
+const toPoint = (cx, cy, r, deg) => {
+  const rad = (deg * Math.PI) / 180;
+  return {
+    x: cx + r * Math.cos(rad),
+    y: cy + r * Math.sin(rad)
+  };
+};
 
-  return (
-    <g>
-      <path d={`M${startX},${startY}L${midX},${midY}L${endX},${endY}`} stroke={fill} strokeWidth={2} fill="none" />
-      <rect x={boxX} y={boxY} width={boxWidth} height={boxHeight} rx={4} fill={fill} />
-      <text
-        x={boxX + boxWidth / 2}
-        y={boxY + 12}
-        textAnchor="middle"
-        fill="#ffffff"
-        fontSize={11}
-        fontWeight={700}
-      >
-        {value}
-      </text>
-    </g>
-  );
+const arcPath = (cx, cy, r, startDeg, endDeg) => {
+  const start = toPoint(cx, cy, r, startDeg);
+  const end = toPoint(cx, cy, r, endDeg);
+  const largeArcFlag = Math.abs(endDeg - startDeg) > 180 ? 1 : 0;
+  const sweepFlag = endDeg > startDeg ? 1 : 0;
+  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArcFlag} ${sweepFlag} ${end.x} ${end.y}`;
+};
+
+const buildSegments = (rows, isGauge) => {
+  const data = Array.isArray(rows)
+    ? rows
+        .map((item) => ({ ...item, value: Math.max(0, toNumber(item.value)) }))
+        .filter((item) => item.value > 0)
+    : [];
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+  if (!data.length || !total) return { data, total, segments: [] };
+
+  const startBase = isGauge ? -180 : -90;
+  const endBase = isGauge ? 0 : 270;
+  const sweep = endBase - startBase;
+  const gap = isGauge ? 5.8 : 4;
+  const totalGap = gap * Math.max(0, data.length - 1);
+  const activeSweep = Math.max(8, sweep - totalGap);
+
+  let cursor = startBase;
+  const segments = data.map((item) => {
+    const ratio = item.value / total;
+    const segSweep = Math.max(6, ratio * activeSweep);
+    const start = cursor;
+    const end = Math.min(endBase, start + segSweep);
+    cursor = end + gap;
+    return { ...item, start, end };
+  });
+
+  return { data, total, segments };
+};
+
+const formatPercent = (value, total) => {
+  if (!total) return "0%";
+  return `${Math.round((toNumber(value) / total) * 100)}%`;
 };
 
 const DonutLeaveChart = ({
   data,
   title,
-  height = 240,
-  innerRadius = 58,
-  outerRadius = 90,
+  height = 280,
+  innerRadius = 60,
+  outerRadius = 92,
   totalLabel = "Total",
-  variant = "standard",
+  variant = "ring", // ring | gauge | segmented-gauge | segmented-ring
   showLegend = true,
-  showTotal = true
+  showTotal = true,
+  customLabel,
+  customTotal,
+  embedded = false,
+  colors = paletteDefault
 }) => {
-  const chartData = Array.isArray(data) ? data.filter((row) => Number(row.value || 0) > 0) : [];
-  const total = chartData.reduce((sum, row) => sum + Number(row.value || 0), 0);
-  const focusIndex = chartData.length
-    ? chartData.reduce((maxIndex, row, index) => (Number(row.value || 0) > Number(chartData[maxIndex].value || 0) ? index : maxIndex), 0)
-    : 0;
-  const isCallout = variant === "callout";
+  const isGauge = variant === "gauge" || variant === "segmented-gauge" || variant === "callout";
+  const { data: safeData, total, segments } = buildSegments(data, isGauge);
+  const centerValue = typeof customTotal !== "undefined" ? customTotal : total;
+  const centerLabel = customLabel || totalLabel;
+  const stroke = Math.max(6, outerRadius - innerRadius);
+
+  const svgWidth = 260;
+  const svgHeight = isGauge ? 170 : 260;
+  const cx = 130;
+  const cy = isGauge ? 138 : 130;
+  const radius = isGauge ? 94 : 96;
 
   return (
-    <section className="card">
-      <div className="card-head">
-        <h3>{title}</h3>
-      </div>
-      <div className={`chart-box ${isCallout ? "callout" : ""}`}>
-        <ResponsiveContainer width="100%" height={height}>
-          <PieChart margin={isCallout ? { top: 24, right: 42, left: 42, bottom: 24 } : undefined}>
-            {chartData.length ? (
-              <Pie
-                data={chartData}
-                dataKey="value"
-                nameKey="name"
-                innerRadius={innerRadius}
-                outerRadius={(entry, index) => (isCallout && index === focusIndex ? outerRadius + 10 : outerRadius)}
-                paddingAngle={3}
-                label={isCallout ? renderCalloutLabel : undefined}
-                labelLine={false}
-              >
-                {chartData.map((_, index) => (
-                  <Cell
-                    key={index}
-                    fill={palette[index % palette.length]}
-                    stroke="#ffffff"
-                    strokeWidth={isCallout ? (index === focusIndex ? 5 : 4) : 2}
-                  />
-                ))}
-              </Pie>
-            ) : null}
-            <Tooltip
-              contentStyle={{
-                borderRadius: 10,
-                border: "1px solid #dbe7f5",
-                boxShadow: "0 12px 28px rgba(15,23,42,0.14)"
-              }}
+    <section className={`${embedded ? "dash-segmented-chart embedded" : "card dash-chart-card dash-segmented-chart"}`}>
+      {title ? (
+        <div className="card-head dash-chart-head">
+          <h3>{title}</h3>
+        </div>
+      ) : null}
+
+      <div className={`dash-segmented-stage ${isGauge ? "gauge" : "ring"}`} style={{ minHeight: height }}>
+        <svg
+          className="dash-segmented-svg"
+          viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+          role="img"
+          aria-label={title || centerLabel}
+        >
+          {isGauge ? (
+            <path
+              d={arcPath(cx, cy, radius, -180, 0)}
+              stroke="#e6ebf1"
+              strokeWidth={stroke}
+              strokeLinecap="round"
+              fill="none"
             />
-          </PieChart>
-        </ResponsiveContainer>
+          ) : (
+            <circle cx={cx} cy={cy} r={radius} fill="none" stroke="#e6ebf1" strokeWidth={stroke} />
+          )}
+
+          {segments.map((segment, index) => (
+            <path
+              key={`${segment.name}-${index}`}
+              d={arcPath(cx, cy, radius, segment.start, segment.end)}
+              stroke={segment.fill || colors[index % colors.length]}
+              strokeWidth={stroke}
+              strokeLinecap="round"
+              fill="none"
+            />
+          ))}
+        </svg>
+
+        <div className={`dash-segmented-center ${isGauge ? "gauge" : "ring"}`}>
+          <small>{centerLabel}</small>
+          <strong>{centerValue}</strong>
+        </div>
       </div>
-      {(showTotal || showLegend) && (
-        <div className="donut-foot">
-          {showTotal ? (
-            <strong>
-              {totalLabel}: {total}
-            </strong>
-          ) : null}
+
+      {(showLegend || showTotal) && safeData.length ? (
+        <div className="dash-segmented-meta">
+          {showTotal ? <h4>{totalLabel}</h4> : null}
           {showLegend ? (
-            <div className="donut-legends">
-              {chartData.map((item, index) => (
-                <span key={item.name}>
-                  <i style={{ backgroundColor: palette[index % palette.length] }} />
-                  {item.name}: {item.value}
-                </span>
+            <div className="dash-segmented-legend">
+              {safeData.map((item, index) => (
+                <div className="dash-segmented-legend-row" key={`${item.name}-${index}`}>
+                  <span className="left">
+                    <i style={{ backgroundColor: item.fill || colors[index % colors.length] }} />
+                    {item.name}
+                  </span>
+                  <strong>{formatPercent(item.value, total)}</strong>
+                </div>
               ))}
             </div>
           ) : null}
         </div>
-      )}
+      ) : null}
     </section>
   );
 };

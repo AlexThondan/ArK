@@ -34,7 +34,7 @@ const EmployeeTeamsPage = () => {
       <div className="team-grid">
         {state.rows.length ? (
           state.rows.map((team) => (
-            <article className="card gradient-card team-card" key={team._id}>
+            <article className="card team-card team-card-clean" key={team._id}>
               <div className="team-head">
                 <div>
                   <h3>{team.name}</h3>
@@ -45,6 +45,33 @@ const EmployeeTeamsPage = () => {
                 <Users2 size={18} />
               </div>
               {team.description ? <p className="two-line">{team.description}</p> : null}
+              <div className="team-lead-row">
+                <span className="muted">Team Lead</span>
+                {team.lead ? (
+                  <div className="list-identity">
+                    <span className="avatar-cell small">
+                      {team.lead.avatarUrl ? (
+                        <img
+                          className="avatar-img"
+                          src={resolveFileUrl(team.lead.avatarUrl)}
+                          alt={`${team.lead.firstName || ""} ${team.lead.lastName || ""}`}
+                        />
+                      ) : (
+                        <span className="avatar-fallback">
+                          {(team.lead.firstName || "L").slice(0, 1)}
+                          {(team.lead.lastName || "").slice(0, 1)}
+                        </span>
+                      )}
+                    </span>
+                    <span>
+                      {(team.lead.firstName || "").trim()} {(team.lead.lastName || "").trim()}{" "}
+                      {team.lead.employeeId ? `(${team.lead.employeeId})` : ""}
+                    </span>
+                  </div>
+                ) : (
+                  <span>-</span>
+                )}
+              </div>
               <div className="team-members">
                 {(team.members || []).map((member) => (
                   <span className="team-chip with-avatar" key={`${member.user}-${member.teamRole}`}>

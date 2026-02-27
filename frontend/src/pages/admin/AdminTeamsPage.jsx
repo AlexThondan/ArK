@@ -257,7 +257,7 @@ const AdminTeamsPage = () => {
                 Add Member
               </button>
             </div>
-            <div className="form-grid">
+            <div className="checklist-stack">
               {(form.members || []).map((member, index) => (
                 <div className="checklist-item" key={`${member.user}-${index}`}>
                   <select
@@ -387,7 +387,7 @@ const AdminTeamsPage = () => {
                   Add Member
                 </button>
               </div>
-              <div className="form-grid">
+              <div className="checklist-stack">
                 {(editing.members || []).map((member, index) => (
                   <div className="checklist-item" key={`${member.user?._id || member.user}-${index}`}>
                     <select

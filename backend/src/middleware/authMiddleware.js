@@ -11,7 +11,7 @@ const protect = asyncHandler(async (req, _res, next) => {
 
   const token = header.split(" ")[1];
   const decoded = verifyToken(token);
-  const user = await User.findById(decoded.userId).select("-password");
+  const user = await User.findById(decoded.userId).select("_id email role isActive").lean();
 
   if (!user || !user.isActive) {
     throw new ApiError(401, "Invalid token user");

@@ -1,17 +1,28 @@
 import { NavLink } from "react-router-dom";
+import { Menu } from "lucide-react";
 import { adminNav, employeeNav } from "../../utils/constants";
 import arkLogo from "../../assets/ark-logo.svg";
 
-const Sidebar = ({ role, open, collapsed, onClose }) => {
+const Sidebar = ({ role, open, collapsed, onToggleCollapse, onClose }) => {
   const navItems = role === "admin" ? adminNav : employeeNav;
 
   return (
     <aside className={`sidebar ${open ? "open" : ""} ${collapsed ? "collapsed" : ""}`}>
       <div className="brand">
-        <img className="brand-logo" src={arkLogo} alt="ArK" />
-        <div className={`brand-text ${collapsed ? "hidden" : ""}`}>
-          <h2>ArK</h2>
+        <div className="brand-main">
+          <img className="brand-logo" src={arkLogo} alt="ArK" />
+          <div className={`brand-text ${collapsed ? "hidden" : ""}`}>
+            <h2>ArK</h2>
+          </div>
         </div>
+        <button
+          className="icon-btn sidebar-toggle desktop-only"
+          type="button"
+          aria-label="Toggle sidebar"
+          onClick={onToggleCollapse}
+        >
+          <Menu size={16} />
+        </button>
       </div>
 
       <nav>

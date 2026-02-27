@@ -100,73 +100,75 @@ const AdminLeavePage = () => {
         </div>
       </div>
 
-      <div className="table-wrap card">
-        <table>
-          <thead>
-            <tr>
-              <th>Employee</th>
-              <th>Type</th>
-              <th>Start</th>
-              <th>End</th>
-              <th>Days</th>
-              <th>Department</th>
-              <th>Status</th>
-              <th>Reason</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {state.rows.map((row) => (
-              <tr key={row._id}>
-                <td>{`${row.firstName || ""} ${row.lastName || ""}`}</td>
-                <td>{row.leaveType}</td>
-                <td>{formatDate(row.startDate)}</td>
-                <td>{formatDate(row.endDate)}</td>
-                <td>{row.days}</td>
-                <td>{row.departmentSnapshot}</td>
-                <td>
-                  <StatusBadge status={row.status} />
-                </td>
-                <td>
-                  <p className="smart-copy">{row.reason}</p>
-                </td>
-                <td className="button-row">
-                  <button
-                    className="btn btn-primary"
-                    type="button"
-                    onClick={() => reviewLeave(row._id, "approved")}
-                  >
-                    <CheckCircle2 size={14} />
-                    Approve
-                  </button>
-                  <button
-                    className="btn btn-danger"
-                    type="button"
-                    onClick={() => reviewLeave(row._id, "rejected")}
-                  >
-                    <CircleOff size={14} />
-                    Reject
-                  </button>
-                  <button
-                    className="btn btn-outline"
-                    type="button"
-                    onClick={() =>
-                      setSelectedLeave({
-                        ...row,
-                        startDate: row.startDate ? new Date(row.startDate).toISOString().slice(0, 10) : "",
-                        endDate: row.endDate ? new Date(row.endDate).toISOString().slice(0, 10) : ""
-                      })
-                    }
-                  >
-                    <Edit3 size={14} />
-                    Edit
-                  </button>
-                </td>
+      <section className="card">
+        <div className="table-wrap">
+          <table className="table-unified">
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Type</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>Days</th>
+                <th>Department</th>
+                <th>Status</th>
+                <th>Reason</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {state.rows.map((row) => (
+                <tr key={row._id}>
+                  <td>{`${row.firstName || ""} ${row.lastName || ""}`}</td>
+                  <td>{row.leaveType}</td>
+                  <td>{formatDate(row.startDate)}</td>
+                  <td>{formatDate(row.endDate)}</td>
+                  <td>{row.days}</td>
+                  <td>{row.departmentSnapshot}</td>
+                  <td>
+                    <StatusBadge status={row.status} />
+                  </td>
+                  <td>
+                    <p className="smart-copy">{row.reason}</p>
+                  </td>
+                  <td className="button-row">
+                    <button
+                      className="btn btn-primary"
+                      type="button"
+                      onClick={() => reviewLeave(row._id, "approved")}
+                    >
+                      <CheckCircle2 size={14} />
+                      Approve
+                    </button>
+                    <button
+                      className="btn btn-danger"
+                      type="button"
+                      onClick={() => reviewLeave(row._id, "rejected")}
+                    >
+                      <CircleOff size={14} />
+                      Reject
+                    </button>
+                    <button
+                      className="btn btn-outline"
+                      type="button"
+                      onClick={() =>
+                        setSelectedLeave({
+                          ...row,
+                          startDate: row.startDate ? new Date(row.startDate).toISOString().slice(0, 10) : "",
+                          endDate: row.endDate ? new Date(row.endDate).toISOString().slice(0, 10) : ""
+                        })
+                      }
+                    >
+                      <Edit3 size={14} />
+                      Edit
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <section className="card">
         <div className="card-head">

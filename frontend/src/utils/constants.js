@@ -1,12 +1,14 @@
 import {
   BarChart3,
   Building2,
+  ClipboardCheck,
   CalendarCheck2,
   ClipboardList,
   GitBranch,
   IdCard,
   FileText,
   LayoutDashboard,
+  MessageSquare,
   Settings,
   Users
 } from "lucide-react";
@@ -19,11 +21,13 @@ export const employeeNav = [
   { label: "Attendance", to: "/employee/attendance", icon: BarChart3 },
   { label: "Teams", to: "/employee/teams", icon: GitBranch },
   { label: "Documents", to: "/employee/documents", icon: FileText },
+  { label: "Chat", to: "/chat", icon: MessageSquare },
   { label: "Settings", to: "/settings", icon: Settings }
 ];
 
 export const adminNav = [
   { label: "Dashboard", to: "/admin/dashboard", icon: LayoutDashboard },
+  { label: "HR Dashboard", to: "/admin/hr-dashboard", icon: ClipboardCheck },
   { label: "Employees", to: "/admin/employees", icon: Users },
   { label: "Teams", to: "/admin/teams", icon: GitBranch },
   { label: "Projects", to: "/admin/projects", icon: ClipboardList },
@@ -31,5 +35,6 @@ export const adminNav = [
   { label: "Attendance", to: "/admin/attendance", icon: BarChart3 },
   { label: "Clients", to: "/admin/clients", icon: Building2 },
   { label: "Reports", to: "/admin/reports", icon: FileText },
+  { label: "Chat", to: "/chat", icon: MessageSquare },
   { label: "Settings", to: "/settings", icon: Settings }
 ];

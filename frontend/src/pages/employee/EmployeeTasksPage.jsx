@@ -5,8 +5,15 @@ import { taskApi } from "../../api/hrmsApi";
 import DataTable from "../../components/common/DataTable";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import ErrorState from "../../components/common/ErrorState";
+import ProgressPie3D from "../../components/charts/ProgressPie3D";
 import useAuth from "../../hooks/useAuth";
 import { formatDate, resolveFileUrl } from "../../utils/format";
+
+const clampProgress = (value) => {
+  const parsed = Number(value || 0);
+  if (Number.isNaN(parsed)) return 0;
+  return Math.max(0, Math.min(100, parsed));
+};
 
 const EmployeeTasksPage = () => {
   const { profile } = useAuth();
@@ -44,7 +51,7 @@ const EmployeeTasksPage = () => {
       const draft = drafts[taskId];
       await taskApi.updateStatus(taskId, {
         status: draft?.checked ? "done" : draft?.status || "todo",
-        progress: draft?.checked ? 100 : Number(draft?.progress || 0),
+        progress: draft?.checked ? 100 : clampProgress(draft?.progress || 0),
         checked: Boolean(draft?.checked),
         updateNote: draft?.updateNote || ""
       });
@@ -87,32 +94,33 @@ const EmployeeTasksPage = () => {
         </div>
       </header>
 
-      <div className="table-wrap card">
-        <table>
-          <thead>
-            <tr>
-              <th>Done</th>
-              <th>Task</th>
-              <th>Status</th>
-              <th>Progress</th>
-              <th>Checklist</th>
-              <th>Update Note</th>
-              <th>Due Date</th>
-              <th>Attachment</th>
-              <th>Submit</th>
-            </tr>
-          </thead>
-          <tbody>
-            {state.rows.map((task) => (
-              <tr key={task._id}>
-                <td>
-                  <label className="round-check" title="Mark as completed">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(drafts[task._id]?.checked)}
-                      onChange={(event) =>
-                        setDrafts((prev) => ({
-                          ...prev,
+      <section className="card">
+        <div className="table-wrap">
+          <table className="table-unified">
+            <thead>
+              <tr>
+                <th>Done</th>
+                <th>Task</th>
+                <th>Status</th>
+                <th>Progress</th>
+                <th>Checklist</th>
+                <th>Update Note</th>
+                <th>Due Date</th>
+                <th>Attachment</th>
+                <th>Submit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {state.rows.map((task) => (
+                <tr key={task._id}>
+                  <td>
+                    <label className="round-check" title="Mark as completed">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(drafts[task._id]?.checked)}
+                        onChange={(event) =>
+                          setDrafts((prev) => ({
+                            ...prev,
                           [task._id]: {
                             ...(prev[task._id] || {}),
                             checked: event.target.checked,
@@ -121,124 +129,122 @@ const EmployeeTasksPage = () => {
                           }
                         }))
                       }
-                    />
-                    <span />
-                  </label>
-                </td>
-                <td>
-                  <strong>{task.title}</strong>
-                  {task.description ? <p className="two-line">{task.description}</p> : null}
-                </td>
-                <td>
-                  <select
-                    value={drafts[task._id]?.status || task.status}
-                    onChange={(event) =>
-                      setDrafts((prev) => ({
-                        ...prev,
-                        [task._id]: {
-                          ...(prev[task._id] || {}),
-                          status: event.target.value
-                        }
-                      }))
-                    }
-                  >
-                    <option value="todo">To Do</option>
-                    <option value="in-progress">In Progress</option>
-                    <option value="blocked">Blocked</option>
-                    <option value="done">Done</option>
-                  </select>
-                </td>
-                <td>
-                  <div className="progress-edit">
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={drafts[task._id]?.progress ?? task.progress ?? 0}
+                      />
+                      <span />
+                    </label>
+                  </td>
+                  <td>
+                    <strong>{task.title}</strong>
+                    {task.project ? (
+                      <p className="muted smart-copy">
+                        {task.project.code || "-"} | {task.project.name || "Project"}
+                      </p>
+                    ) : null}
+                    {task.description ? <p className="two-line">{task.description}</p> : null}
+                  </td>
+                  <td>
+                    <select
+                      value={drafts[task._id]?.status || task.status}
                       onChange={(event) =>
                         setDrafts((prev) => ({
                           ...prev,
                           [task._id]: {
                             ...(prev[task._id] || {}),
-                            progress: Number(event.target.value)
+                            status: event.target.value
                           }
                         }))
                       }
-                    />
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={drafts[task._id]?.progress ?? task.progress ?? 0}
-                      onChange={(event) =>
-                        setDrafts((prev) => ({
+                    >
+                      <option value="todo">To Do</option>
+                      <option value="in-progress">In Progress</option>
+                      <option value="blocked">Blocked</option>
+                      <option value="done">Done</option>
+                    </select>
+                  </td>
+                  <td>
+                    <div className="progress-edit pie-edit">
+                      <ProgressPie3D value={drafts[task._id]?.progress ?? task.progress ?? 0} />
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={drafts[task._id]?.progress ?? task.progress ?? 0}
+                        onChange={(event) =>
+                          setDrafts((prev) => ({
                           ...prev,
                           [task._id]: {
                             ...(prev[task._id] || {}),
-                            progress: Number(event.target.value)
+                            progress: clampProgress(event.target.value)
                           }
                         }))
                       }
-                    />
-                  </div>
-                </td>
-                <td>
-                  {task.checklists?.length ? (
-                    <div className="checklist-list">
-                      {task.checklists.map((item) => (
-                        <label key={item._id} className="checklist-row">
-                          <input
-                            type="checkbox"
-                            checked={Boolean(item.isChecked)}
-                            onChange={(event) => toggleChecklist(task._id, item._id, event.target.checked)}
-                          />
-                          <span>{item.title}</span>
-                        </label>
-                      ))}
+                      />
                     </div>
-                  ) : (
-                    <span className="muted">-</span>
-                  )}
-                </td>
-                <td>
-                  <textarea
-                    className="inline-note"
-                    placeholder="Add work update or blockers"
-                    value={drafts[task._id]?.updateNote || ""}
-                    onChange={(event) =>
-                      setDrafts((prev) => ({
-                        ...prev,
-                        [task._id]: {
-                          ...(prev[task._id] || {}),
-                          updateNote: event.target.value
-                        }
-                      }))
-                    }
-                  />
-                </td>
-                <td>{formatDate(task.dueDate)}</td>
-                <td>
-                  <label className="btn btn-outline">
-                    <UploadCloud size={14} />
-                    Upload
-                    <input
-                      type="file"
-                      hidden
-                      onChange={(event) => uploadAttachment(task._id, event.target.files?.[0])}
+                  </td>
+                  <td>
+                    {task.checklists?.length ? (
+                      <div className="checklist-list">
+                        {task.checklists.map((item) => (
+                          <label key={item._id} className={`checklist-row ${item.isChecked ? "checked" : ""}`}>
+                            <span className="round-check checklist-check" title="Mark checklist">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(item.isChecked)}
+                                onChange={(event) => toggleChecklist(task._id, item._id, event.target.checked)}
+                              />
+                              <span />
+                            </span>
+                            <span className="checklist-copy">
+                              <strong>{item.title}</strong>
+                              {item.description ? <small>{item.description}</small> : null}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="muted">-</span>
+                    )}
+                  </td>
+                  <td>
+                    <textarea
+                      className="inline-note"
+                      placeholder="Add work update or blockers"
+                      value={drafts[task._id]?.updateNote || ""}
+                      onChange={(event) =>
+                        setDrafts((prev) => ({
+                          ...prev,
+                          [task._id]: {
+                            ...(prev[task._id] || {}),
+                            updateNote: event.target.value
+                          }
+                        }))
+                      }
                     />
-                  </label>
-                </td>
-                <td>
-                  <button className="btn btn-primary" type="button" onClick={() => saveTask(task._id)}>
-                    <Save size={14} />
-                    Submit
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  </td>
+                  <td>{formatDate(task.dueDate)}</td>
+                  <td>
+                    <label className="btn btn-outline">
+                      <UploadCloud size={14} />
+                      Upload
+                      <input
+                        type="file"
+                        hidden
+                        onChange={(event) => uploadAttachment(task._id, event.target.files?.[0])}
+                      />
+                    </label>
+                  </td>
+                  <td>
+                    <button className="btn btn-primary" type="button" onClick={() => saveTask(task._id)}>
+                      <Save size={14} />
+                      Submit
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <section className="card">
         <div className="card-head">

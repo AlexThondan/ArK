@@ -166,7 +166,7 @@ const EmployeeLeavePage = () => {
           </select>
         </div>
         <div className="table-wrap">
-          <table>
+          <table className="table-unified">
             <thead>
               <tr>
                 <th>Type</th>

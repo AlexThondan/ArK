@@ -1,5 +1,24 @@
 const mongoose = require("mongoose");
 
+const projectChecklistSchema = new mongoose.Schema(
+  {
+    title: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    description: {
+      type: String,
+      trim: true
+    },
+    isChecked: {
+      type: Boolean,
+      default: false
+    }
+  },
+  { timestamps: true }
+);
+
 const projectSchema = new mongoose.Schema(
   {
     name: {
@@ -31,6 +50,17 @@ const projectSchema = new mongoose.Schema(
         index: true
       }
     ],
+    assignmentType: {
+      type: String,
+      enum: ["individual", "team"],
+      default: "individual",
+      index: true
+    },
+    assignedTeam: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Team",
+      index: true
+    },
     startDate: {
       type: Date
     },
@@ -51,7 +81,8 @@ const projectSchema = new mongoose.Schema(
       default: 0,
       min: 0,
       max: 100
-    }
+    },
+    checklists: [projectChecklistSchema]
   },
   { timestamps: true }
 );

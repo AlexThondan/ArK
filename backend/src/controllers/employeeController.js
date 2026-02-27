@@ -3,21 +3,9 @@ const Employee = require("../models/Employee");
 const ApiError = require("../utils/ApiError");
 const asyncHandler = require("../utils/asyncHandler");
 const { buildPagination } = require("../utils/pagination");
+const { generateEmployeeId } = require("../utils/employeeId");
 
-const generateEmployeeId = async () => {
-  let employeeId = "";
-  let exists = true;
-
-  while (exists) {
-    const stamp = Date.now().toString().slice(-6);
-    const random = Math.random().toString(36).toUpperCase().slice(2, 5);
-    employeeId = `ARK-${stamp}${random}`;
-    // eslint-disable-next-line no-await-in-loop
-    exists = Boolean(await Employee.findOne({ employeeId }).select("_id").lean());
-  }
-
-  return employeeId;
-};
+const DEFAULT_EMPLOYEE_PASSWORD = process.env.DEFAULT_EMPLOYEE_PASSWORD || "Emp@12345";
 
 const pickProfilePayload = (body) => ({
   employeeId: body.employeeId,
@@ -58,10 +46,11 @@ const pickProfilePayload = (body) => ({
 const createEmployee = asyncHandler(async (req, res) => {
   const { email, password, role = "employee" } = req.body;
   const profilePayload = pickProfilePayload(req.body);
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const loginPassword = String(password || "").trim() || DEFAULT_EMPLOYEE_PASSWORD;
 
   if (
-    !email ||
-    !password ||
+    !normalizedEmail ||
     !profilePayload.firstName ||
     !profilePayload.lastName ||
     !profilePayload.department ||
@@ -69,18 +58,22 @@ const createEmployee = asyncHandler(async (req, res) => {
   ) {
     throw new ApiError(
       400,
-      "email, password, firstName, lastName, department, designation are required"
+      "email, firstName, lastName, department, designation are required"
     );
   }
 
-  const existing = await User.findOne({ email: email.toLowerCase() });
+  if (loginPassword.length < 8) {
+    throw new ApiError(400, "password must be at least 8 characters");
+  }
+
+  const existing = await User.findOne({ email: normalizedEmail });
   if (existing) {
     throw new ApiError(409, "Email is already registered");
   }
 
   const user = await User.create({
-    email: email.toLowerCase(),
-    password,
+    email: normalizedEmail,
+    password: loginPassword,
     role
   });
 
@@ -89,6 +82,9 @@ const createEmployee = asyncHandler(async (req, res) => {
       profilePayload.employeeId = await generateEmployeeId();
     } else {
       profilePayload.employeeId = profilePayload.employeeId.toString().trim().toUpperCase();
+      if (!/^ARK-\d+$/i.test(profilePayload.employeeId)) {
+        profilePayload.employeeId = await generateEmployeeId();
+      }
     }
 
     const employee = await Employee.create({
@@ -105,8 +101,13 @@ const createEmployee = asyncHandler(async (req, res) => {
           role: user.role,
           isActive: user.isActive
         },
-        employee
-      }
+        employee,
+        credentials: {
+          email: normalizedEmail,
+          password: loginPassword
+        }
+      },
+      message: password ? "Employee created" : "Employee created with default password"
     });
   } catch (error) {
     await User.findByIdAndDelete(user._id);
@@ -218,7 +219,7 @@ const getEmployeeById = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Employee not found");
   }
 
-  if (!employee.employeeId) {
+  if (!employee.employeeId || !/^ARK-\d+$/i.test(String(employee.employeeId))) {
     employee.employeeId = await generateEmployeeId();
     await employee.save();
   }
@@ -246,7 +247,8 @@ const updateEmployee = asyncHandler(async (req, res) => {
   });
 
   if (profilePayload.employeeId) {
-    employee.employeeId = profilePayload.employeeId.toString().trim().toUpperCase();
+    const incomingId = profilePayload.employeeId.toString().trim().toUpperCase();
+    employee.employeeId = /^ARK-\d+$/i.test(incomingId) ? incomingId : await generateEmployeeId();
   } else if (!employee.employeeId) {
     employee.employeeId = await generateEmployeeId();
   }
@@ -256,7 +258,7 @@ const updateEmployee = asyncHandler(async (req, res) => {
   const userUpdates = {};
   if (typeof req.body.role !== "undefined") userUpdates.role = req.body.role;
   if (typeof req.body.isActive !== "undefined") userUpdates.isActive = req.body.isActive;
-  if (typeof req.body.email !== "undefined") userUpdates.email = req.body.email.toLowerCase();
+  if (typeof req.body.email !== "undefined") userUpdates.email = String(req.body.email || "").trim().toLowerCase();
 
   if (Object.keys(userUpdates).length > 0) {
     await User.findByIdAndUpdate(req.params.id, userUpdates, { runValidators: true });
@@ -300,7 +302,7 @@ const getMyProfile = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Profile not found");
   }
 
-  if (!profile.employeeId) {
+  if (!profile.employeeId || !/^ARK-\d+$/i.test(String(profile.employeeId))) {
     profile.employeeId = await generateEmployeeId();
     await profile.save();
   }
