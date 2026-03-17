@@ -154,9 +154,9 @@ const AdminProfilePage = () => {
         </button>
       </header>
 
-      <section className="card admin-profile-surface">
-        <div className="admin-profile-head">
-          <div className="avatar-cell medium">
+      <section className="profile-hero">
+        <div className="profile-hero-main">
+          <div className="avatar-cell profile-avatar-large">
             {profile?.avatarUrl ? (
               <img className="avatar-img" src={`${resolveFileUrl(profile.avatarUrl)}?v=${avatarVersion}`} alt={fullName} />
             ) : (
@@ -168,13 +168,36 @@ const AdminProfilePage = () => {
           </div>
           <div>
             <h2>{fullName}</h2>
-            <p className="muted">{user?.email || "-"}</p>
-            <p className="muted">Employee ID: {profile?.employeeId || "-"}</p>
+            <p className="profile-hero-subtitle">{form.designation || "Admin"}</p>
+            <p className="profile-hero-email muted">{user?.email || "-"}</p>
+            <div className="hero-id-row">
+              <span className="status-pill success">{user?.isActive ? "Active" : "Inactive"}</span>
+              {form.department ? <span className="hero-id">{form.department}</span> : null}
+              {profile?.employeeId ? <span className="hero-id">ID: {profile.employeeId}</span> : null}
+            </div>
           </div>
           <label className="btn btn-outline">
             Upload Avatar
             <input type="file" accept="image/*" hidden onChange={onAvatarChange} />
           </label>
+        </div>
+        <div className="hero-stat-grid">
+          <div className="hero-stat">
+            <p>Work Mode</p>
+            <strong>{form.workMode || "-"}</strong>
+          </div>
+          <div className="hero-stat">
+            <p>Employment Type</p>
+            <strong>{form.employmentType || "-"}</strong>
+          </div>
+          <div className="hero-stat">
+            <p>Emergency Contact</p>
+            <strong>{form.emergencyName || "-"}</strong>
+          </div>
+          <div className="hero-stat">
+            <p>Emergency Phone</p>
+            <strong>{form.emergencyPhone || "-"}</strong>
+          </div>
         </div>
       </section>
 

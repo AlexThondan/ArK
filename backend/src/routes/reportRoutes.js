@@ -14,8 +14,8 @@ const router = express.Router();
  * GET /api/reports/leave-trends
  * GET /api/reports/performance
  */
-router.get("/department-productivity", protect, allowRoles("admin"), getDepartmentProductivity);
-router.get("/leave-trends", protect, allowRoles("admin"), getLeaveTrends);
-router.get("/performance", protect, allowRoles("admin"), getPerformanceMetrics);
+router.get("/department-productivity", protect, allowRoles("admin", "hr"), getDepartmentProductivity);
+router.get("/leave-trends", protect, allowRoles("admin", "hr"), getLeaveTrends);
+router.get("/performance", protect, allowRoles("admin", "hr"), getPerformanceMetrics);
 
 module.exports = router;

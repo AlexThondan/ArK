@@ -9,7 +9,7 @@ const router = express.Router();
  * GET /api/dashboard/employee
  * GET /api/dashboard/admin
  */
-router.get("/employee", protect, allowRoles("employee"), getEmployeeDashboard);
+router.get("/employee", protect, allowRoles("employee", "manager"), getEmployeeDashboard);
 router.get("/admin", protect, allowRoles("admin"), getAdminDashboard);
 
 module.exports = router;

@@ -165,6 +165,23 @@ const Topbar = ({ onOpenSidebar }) => {
       ];
     }
 
+    if (user?.role === "hr") {
+      return [
+        { label: "HR Dashboard", icon: Users, to: "/admin/hr-dashboard" },
+        { label: "Employee Directory", icon: Users, to: "/admin/employees" },
+        { label: "My Profile", icon: UserRound, to: "/admin/profile" },
+        { label: "Settings", icon: Settings, to: "/settings" }
+      ];
+    }
+
+    if (user?.role === "manager") {
+      return [
+        { label: "Manager Dashboard", icon: Users, to: "/manager/dashboard" },
+        { label: "My Profile", icon: UserRound, to: "/employee/profile" },
+        { label: "Settings", icon: Settings, to: "/settings" }
+      ];
+    }
+
     return [
       { label: "My Profile", icon: UserRound, to: "/employee/profile" },
       { label: "Settings", icon: Settings, to: "/settings" }
@@ -360,7 +377,7 @@ const Topbar = ({ onOpenSidebar }) => {
             </span>
             <span className="profile-menu-copy">
               <strong>{profileName}</strong>
-              <small>{user?.role === "admin" ? "Admin" : "Employee"}</small>
+              <small>{user?.role === "admin" ? "Admin" : user?.role === "hr" ? "HR" : user?.role === "manager" ? "Manager" : "Employee"}</small>
             </span>
           </button>
 

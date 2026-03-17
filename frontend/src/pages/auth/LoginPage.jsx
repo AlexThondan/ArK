@@ -1,30 +1,49 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Eye, EyeOff, Lock, Mail, ArrowRight } from "lucide-react";
 import useAuth from "../../hooks/useAuth";
 import arkLogo from "../../assets/ark-logo.svg";
 
+const resolveHomePath = (role) => {
+  if (role === "admin") return "/admin/dashboard";
+  if (role === "hr") return "/admin/hr-dashboard";
+  if (role === "manager") return "/manager/dashboard";
+  return "/employee/dashboard";
+};
+
 const LoginPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, isAuthenticated, user } = useAuth();
   const [form, setForm] = useState({ email: "", password: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [remember, setRemember] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
 
+  const resolveRedirectTarget = (role) => {
+    const from = location.state?.from;
+    const pathname = typeof from === "string" ? from : from?.pathname;
+    const search = typeof from === "object" ? from.search || "" : "";
+    const target = pathname ? `${pathname}${search}` : "";
+    if (!target || target === "/login" || target === "/register-admin") {
+      return resolveHomePath(role);
+    }
+    return target;
+  };
+
   useEffect(() => {
     if (isAuthenticated && user) {
-      navigate(user.role === "admin" ? "/admin/dashboard" : "/employee/dashboard", { replace: true });
+      navigate(resolveRedirectTarget(user.role), { replace: true });
     }
-  }, [isAuthenticated, user, navigate]);
+  }, [isAuthenticated, user, navigate, location]);
 
   const onSubmit = async (event) => {
     event.preventDefault();
     try {
       setIsSubmitting(true);
       const loggedUser = await login(String(form.email || "").trim(), form.password);
-      navigate(loggedUser.role === "admin" ? "/admin/dashboard" : "/employee/dashboard", { replace: true });
+      navigate(resolveRedirectTarget(loggedUser.role), { replace: true });
     } catch (error) {
       toast.error(error.message);
     } finally {
@@ -38,7 +57,7 @@ const LoginPage = () => {
 
   return (
     <div className="login-split-page">
-      {/* ── LEFT: Form ── */}
+      {/* LEFT: Form */}
       <div className="login-form-side">
 
         <div className="login-form-content">
@@ -107,11 +126,11 @@ const LoginPage = () => {
         </div>
 
         <p className="login-footer-copy">
-          © Copyright 2026, <strong>ArK HRMS</strong> – All rights reserved.
+          (C) Copyright 2026, <strong>ArK HRMS</strong> - All rights reserved.
         </p>
       </div>
 
-      {/* ── RIGHT: Visual ── */}
+      {/* RIGHT: Visual */}
       <div className="login-visual-side">
         <div className="login-visual-circles">
           <span className="lvc lvc-1" />

@@ -1,4 +1,5 @@
 const path = require("path");
+const fs = require("fs");
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -23,12 +24,13 @@ const app = express();
 const uploadDir = path.resolve(__dirname, "..", "uploads");
 
 app.use(helmet());
-app.use(
-  cors({
-    origin: process.env.CLIENT_URL || "*",
-    credentials: true
-  })
-);
+const clientUrl = process.env.CLIENT_URL || "*";
+const corsOptions =
+  clientUrl === "*"
+    ? { origin: "*", credentials: false }
+    : { origin: clientUrl, credentials: true };
+
+app.use(cors(corsOptions));
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
@@ -70,6 +72,18 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/teams", teamRoutes);
 app.use("/api/chat", chatRoutes);
+
+const clientBuildPath = path.resolve(__dirname, "..", "..", "frontend", "dist");
+if (fs.existsSync(clientBuildPath)) {
+  app.use(express.static(clientBuildPath));
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api") || req.path.startsWith("/uploads")) {
+      next();
+      return;
+    }
+    res.sendFile(path.join(clientBuildPath, "index.html"));
+  });
+}
 
 app.use(notFound);
 app.use(errorHandler);

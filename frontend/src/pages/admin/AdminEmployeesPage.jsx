@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { Eye, Pencil, Power, PowerOff, UserPlus } from "lucide-react";
-import { City, Country, State } from "country-state-city";
 import { employeeApi } from "../../api/hrmsApi";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import ErrorState from "../../components/common/ErrorState";
 import FormModal from "../../components/common/FormModal";
 import StatusBadge from "../../components/common/StatusBadge";
+import useAuth from "../../hooks/useAuth";
 import { formatCurrency, formatDate, resolveFileUrl } from "../../utils/format";
 
 const initialForm = {
-  employeeId: "",
   email: "",
   password: "Emp@12345",
   firstName: "",
@@ -53,8 +52,17 @@ const initialForm = {
   skills: ""
 };
 
+const parseArkNumeric = (value) => {
+  const normalized = String(value || "").trim().toUpperCase();
+  if (!normalized) return 0;
+  if (/^ARK-\d+$/.test(normalized)) return Number(normalized.split("-")[1] || 0);
+  if (/^\d+$/.test(normalized)) return Number(normalized);
+  return 0;
+};
+
+const formatArkCode = (value) => `ARK-${String(value).padStart(3, "0")}`;
+
 const mapFormToPayload = (form) => ({
-  employeeId: form.employeeId,
   email: form.email,
   password: form.password,
   firstName: form.firstName,
@@ -159,47 +167,22 @@ const mapRowToEdit = (row) => ({
 const employeeDetailsLabel = (row) => `${row.firstName} ${row.lastName}`.trim();
 
 const AdminEmployeesPage = () => {
+  const { user } = useAuth();
   const [state, setState] = useState({ loading: true, error: "", rows: [], pagination: {} });
   const [page, setPage] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
   const [showView, setShowView] = useState(null);
   const [form, setForm] = useState(initialForm);
   const [editing, setEditing] = useState(null);
+  const canManageHr = user?.role === "admin";
+  const nextEmployeeId = useMemo(() => {
+    const maxValue = (state.rows || []).reduce(
+      (maxCode, row) => Math.max(maxCode, parseArkNumeric(row.employeeId)),
+      0
+    );
+    return formatArkCode(maxValue + 1);
+  }, [state.rows]);
 
-  const countries = useMemo(() => Country.getAllCountries(), []);
-  const createCountryCode = useMemo(
-    () => countries.find((item) => item.name === form.country)?.isoCode || "",
-    [countries, form.country]
-  );
-  const createStates = useMemo(
-    () => (createCountryCode ? State.getStatesOfCountry(createCountryCode) : []),
-    [createCountryCode]
-  );
-  const createStateCode = useMemo(
-    () => createStates.find((item) => item.name === form.state)?.isoCode || "",
-    [createStates, form.state]
-  );
-  const createCities = useMemo(
-    () => (createCountryCode && createStateCode ? City.getCitiesOfState(createCountryCode, createStateCode) : []),
-    [createCountryCode, createStateCode]
-  );
-
-  const editCountryCode = useMemo(
-    () => countries.find((item) => item.name === (editing?.country || ""))?.isoCode || "",
-    [countries, editing?.country]
-  );
-  const editStates = useMemo(
-    () => (editCountryCode ? State.getStatesOfCountry(editCountryCode) : []),
-    [editCountryCode]
-  );
-  const editStateCode = useMemo(
-    () => editStates.find((item) => item.name === (editing?.state || ""))?.isoCode || "",
-    [editStates, editing?.state]
-  );
-  const editCities = useMemo(
-    () => (editCountryCode && editStateCode ? City.getCitiesOfState(editCountryCode, editStateCode) : []),
-    [editCountryCode, editStateCode]
-  );
 
   const loadData = useCallback(async () => {
     try {
@@ -223,7 +206,11 @@ const AdminEmployeesPage = () => {
   const handleCreate = async (event) => {
     event.preventDefault();
     try {
-      const response = await employeeApi.create(mapFormToPayload(form));
+      const payload = mapFormToPayload({
+        ...form,
+        role: canManageHr ? form.role : "employee"
+      });
+      const response = await employeeApi.create(payload);
       const createdPassword = response?.data?.credentials?.password || form.password || "Emp@12345";
       toast.success(`Employee created. Login password: ${createdPassword}`);
       setShowCreate(false);
@@ -242,12 +229,12 @@ const AdminEmployeesPage = () => {
         ...editing,
         password: "",
         email: editing.email,
-        role: editing.role
+        role: canManageHr ? editing.role : "employee"
       });
       await employeeApi.update(editing.userId, {
         ...payload,
         email: editing.email,
-        role: editing.role,
+        role: canManageHr ? editing.role : "employee",
         isActive: editing.isActive
       });
       toast.success("Employee updated");
@@ -274,19 +261,19 @@ const AdminEmployeesPage = () => {
   return (
     <section className="page-grid">
       <header className="page-head">
-        <h1>Employee Management</h1>
+        <h1>{canManageHr ? "Employee & HR Management" : "Employee Management"}</h1>
         <button className="btn btn-primary" type="button" onClick={() => setShowCreate(true)}>
           <UserPlus size={14} />
-          Add Employee
+          {canManageHr ? "Add Employee / HR" : "Add Employee"}
         </button>
       </header>
 
-      <section className="card">
+      <section className="card admin-employee-card">
         <div className="card-head">
           <h3>Employee Directory (Essential Details)</h3>
         </div>
         <div className="table-wrap">
-          <table className="table-unified">
+          <table className="table-unified employee-table">
             <thead>
               <tr>
                 <th>Photo</th>
@@ -328,17 +315,17 @@ const AdminEmployeesPage = () => {
                   <td>
                     <StatusBadge status={row.user?.isActive ? "active" : "inactive"} />
                   </td>
-                  <td className="button-row">
-                    <button className="btn btn-outline" type="button" onClick={() => setShowView(row)}>
+                  <td className="button-row table-actions-row">
+                    <button className="btn btn-outline btn-xs" type="button" onClick={() => setShowView(row)}>
                       <Eye size={14} />
                       View
                     </button>
-                    <button className="btn btn-outline" type="button" onClick={() => setEditing(mapRowToEdit(row))}>
+                    <button className="btn btn-outline btn-xs" type="button" onClick={() => setEditing(mapRowToEdit(row))}>
                       <Pencil size={14} />
                       Edit
                     </button>
                     <button
-                      className={row.user?.isActive ? "btn btn-danger" : "btn btn-primary"}
+                      className={row.user?.isActive ? "btn btn-danger btn-xs" : "btn btn-primary btn-xs"}
                       type="button"
                       onClick={() => toggleActive(row)}
                     >
@@ -378,11 +365,7 @@ const AdminEmployeesPage = () => {
           <h3>Identity & Contact</h3>
           <label>
             Employee ID
-            <input
-              value={form.employeeId}
-              onChange={(event) => setForm((prev) => ({ ...prev, employeeId: event.target.value }))}
-              placeholder="ARK-0001"
-            />
+            <input value={nextEmployeeId} disabled />
           </label>
           <label>
             Work Email
@@ -523,6 +506,8 @@ const AdminEmployeesPage = () => {
             Role
             <select value={form.role} onChange={(event) => setForm((prev) => ({ ...prev, role: event.target.value }))}>
               <option value="employee">Employee</option>
+              {canManageHr ? <option value="hr">HR</option> : null}
+              {canManageHr ? <option value="manager">Manager</option> : null}
             </select>
           </label>
           <label className="full-width">
@@ -541,55 +526,15 @@ const AdminEmployeesPage = () => {
           </label>
           <label>
             City
-            <select value={form.city} onChange={(event) => setForm((prev) => ({ ...prev, city: event.target.value }))}>
-              <option value="">Select city</option>
-              {createCities.map((item) => (
-                <option key={item.name} value={item.name}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
+            <input value={form.city} onChange={(event) => setForm((prev) => ({ ...prev, city: event.target.value }))} />
           </label>
           <label>
             State
-            <select
-              value={form.state}
-              onChange={(event) =>
-                setForm((prev) => ({
-                  ...prev,
-                  state: event.target.value,
-                  city: ""
-                }))
-              }
-            >
-              <option value="">Select state</option>
-              {createStates.map((item) => (
-                <option key={item.isoCode} value={item.name}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
+            <input value={form.state} onChange={(event) => setForm((prev) => ({ ...prev, state: event.target.value }))} />
           </label>
           <label>
             Country
-            <select
-              value={form.country}
-              onChange={(event) =>
-                setForm((prev) => ({
-                  ...prev,
-                  country: event.target.value,
-                  state: "",
-                  city: ""
-                }))
-              }
-            >
-              <option value="">Select country</option>
-              {countries.map((item) => (
-                <option key={item.isoCode} value={item.name}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
+            <input value={form.country} onChange={(event) => setForm((prev) => ({ ...prev, country: event.target.value }))} />
           </label>
           <label>
             Postal Code
@@ -669,10 +614,7 @@ const AdminEmployeesPage = () => {
           <form className="form-grid" onSubmit={handleUpdate}>
             <label>
               Employee ID
-              <input
-                value={editing.employeeId}
-                onChange={(event) => setEditing((prev) => ({ ...prev, employeeId: event.target.value }))}
-              />
+              <input value={editing.employeeId} disabled />
             </label>
             <label>
               Work Email
@@ -725,55 +667,15 @@ const AdminEmployeesPage = () => {
             </label>
             <label>
               City
-              <select value={editing.city} onChange={(event) => setEditing((prev) => ({ ...prev, city: event.target.value }))}>
-                <option value="">Select city</option>
-                {editCities.map((item) => (
-                  <option key={item.name} value={item.name}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
+              <input value={editing.city} onChange={(event) => setEditing((prev) => ({ ...prev, city: event.target.value }))} />
             </label>
             <label>
               State
-              <select
-                value={editing.state}
-                onChange={(event) =>
-                  setEditing((prev) => ({
-                    ...prev,
-                    state: event.target.value,
-                    city: ""
-                  }))
-                }
-              >
-                <option value="">Select state</option>
-                {editStates.map((item) => (
-                  <option key={item.isoCode} value={item.name}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
+              <input value={editing.state} onChange={(event) => setEditing((prev) => ({ ...prev, state: event.target.value }))} />
             </label>
             <label>
               Country
-              <select
-                value={editing.country}
-                onChange={(event) =>
-                  setEditing((prev) => ({
-                    ...prev,
-                    country: event.target.value,
-                    state: "",
-                    city: ""
-                  }))
-                }
-              >
-                <option value="">Select country</option>
-                {countries.map((item) => (
-                  <option key={item.isoCode} value={item.name}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
+              <input value={editing.country} onChange={(event) => setEditing((prev) => ({ ...prev, country: event.target.value }))} />
             </label>
             <label>
               PAN
@@ -798,7 +700,8 @@ const AdminEmployeesPage = () => {
               Role
               <select value={editing.role} onChange={(event) => setEditing((prev) => ({ ...prev, role: event.target.value }))}>
                 <option value="employee">Employee</option>
-                <option value="admin">Admin</option>
+                {canManageHr ? <option value="hr">HR</option> : null}
+                {canManageHr ? <option value="manager">Manager</option> : null}
               </select>
             </label>
             <label>
@@ -822,39 +725,136 @@ const AdminEmployeesPage = () => {
         ) : null}
       </FormModal>
 
-      <FormModal title="Employee Details" open={Boolean(showView)} onClose={() => setShowView(null)} width="760px">
+      <FormModal title="Employee Profile" open={Boolean(showView)} onClose={() => setShowView(null)} width="980px">
         {showView ? (
-          <div className="page-grid">
-            <div className="detail-grid">
-              <article className="card">
-                <div className="profile-card">
-                  <div className="profile-avatar">
-                    {showView.avatarUrl ? (
-                      <img src={resolveFileUrl(showView.avatarUrl)} alt={employeeDetailsLabel(showView)} />
-                    ) : (
-                      <span>{(showView.firstName || "E").slice(0, 1)}</span>
-                    )}
+          <section className="profile-modal">
+            <div className="profile-modal-hero">
+              <div className="avatar-cell profile-avatar-large">
+                {showView.avatarUrl ? (
+                  <img src={resolveFileUrl(showView.avatarUrl)} alt={employeeDetailsLabel(showView)} />
+                ) : (
+                  <span className="avatar-fallback">
+                    {(showView.firstName || "E").slice(0, 1)}
+                    {(showView.lastName || "").slice(0, 1)}
+                  </span>
+                )}
+              </div>
+              <div className="profile-modal-hero-info">
+                <h2>{employeeDetailsLabel(showView)}</h2>
+                <p className="muted">{showView.designation || "Employee"}</p>
+                <div className="hero-id-row">
+                  <span className={`status-pill ${showView.user?.isActive ? "success" : "warning"}`}>
+                    {showView.user?.isActive ? "Active" : "Inactive"}
+                  </span>
+                  <span className="hero-id">{showView.department || "-"}</span>
+                  <span className="hero-id">ID: {showView.employeeId || "-"}</span>
+                </div>
+                <div className="profile-modal-meta">
+                  <div>
+                    <small className="muted">Work Email</small>
+                    <strong>{showView.user?.email || "-"}</strong>
                   </div>
                   <div>
-                    <h3>{employeeDetailsLabel(showView)}</h3>
-                    <p className="muted">{showView.employeeId || "-"}</p>
+                    <small className="muted">Phone</small>
+                    <strong>{showView.phone || "-"}</strong>
+                  </div>
+                  <div>
+                    <small className="muted">Location</small>
+                    <strong>
+                      {[showView.address?.city, showView.address?.state, showView.address?.country]
+                        .filter(Boolean)
+                        .join(", ") || "-"}
+                    </strong>
                   </div>
                 </div>
-                <p>Work Email: {showView.user?.email || "-"}</p>
-                <p>Phone: {showView.phone || "-"}</p>
-                <p>Personal Email: {showView.personalEmail || "-"}</p>
-                <p>Alternate Phone: {showView.alternatePhone || "-"}</p>
+              </div>
+              <div className="profile-modal-actions">
+                <button className="btn btn-outline" type="button" onClick={() => setEditing(mapRowToEdit(showView))}>
+                  Edit Profile
+                </button>
+                <button className="btn btn-primary" type="button">
+                  Message
+                </button>
+              </div>
+            </div>
+
+            <div className="profile-overview-grid">
+              <article className="card profile-info-card">
+                <div className="profile-section-head">
+                  <div>
+                    <h3>Personal Information</h3>
+                    <p className="section-subtitle">Identity and contact details.</p>
+                  </div>
+                </div>
+                <div className="profile-info-grid">
+                  <div>
+                    <small className="muted">Full Legal Name</small>
+                    <strong>{employeeDetailsLabel(showView)}</strong>
+                  </div>
+                  <div>
+                    <small className="muted">Personal Email</small>
+                    <strong>{showView.personalEmail || "-"}</strong>
+                  </div>
+                  <div>
+                    <small className="muted">Alternate Phone</small>
+                    <strong>{showView.alternatePhone || "-"}</strong>
+                  </div>
+                  <div>
+                    <small className="muted">Date of Birth</small>
+                    <strong>{formatDate(showView.dob)}</strong>
+                  </div>
+                  <div>
+                    <small className="muted">Emergency Contact</small>
+                    <strong>{showView.emergencyContact?.name || "-"}</strong>
+                    <span className="muted">{showView.emergencyContact?.phone || ""}</span>
+                  </div>
+                  <div>
+                    <small className="muted">Address</small>
+                    <strong>
+                      {[showView.address?.line1, showView.address?.city, showView.address?.state, showView.address?.country]
+                        .filter(Boolean)
+                        .join(", ") || "-"}
+                    </strong>
+                  </div>
+                </div>
               </article>
-              <article className="card">
-                <h3>Employment</h3>
-                <p>Department: {showView.department || "-"}</p>
-                <p>Designation: {showView.designation || "-"}</p>
-                <p>Join Date: {formatDate(showView.joinDate)}</p>
-                <p>Salary: {formatCurrency(showView.salary)}</p>
-                <p>Mode: {showView.workMode || "-"}</p>
+
+              <article className="card profile-info-card">
+                <div className="profile-section-head">
+                  <div>
+                    <h3>Employment</h3>
+                    <p className="section-subtitle">Role, department, and work details.</p>
+                  </div>
+                </div>
+                <div className="profile-info-grid">
+                  <div>
+                    <small className="muted">Department</small>
+                    <strong>{showView.department || "-"}</strong>
+                  </div>
+                  <div>
+                    <small className="muted">Designation</small>
+                    <strong>{showView.designation || "-"}</strong>
+                  </div>
+                  <div>
+                    <small className="muted">Work Mode</small>
+                    <strong>{showView.workMode || "-"}</strong>
+                  </div>
+                  <div>
+                    <small className="muted">Employment Type</small>
+                    <strong>{showView.employmentType || "-"}</strong>
+                  </div>
+                  <div>
+                    <small className="muted">Join Date</small>
+                    <strong>{formatDate(showView.joinDate)}</strong>
+                  </div>
+                  <div>
+                    <small className="muted">Salary</small>
+                    <strong>{formatCurrency(showView.salary)}</strong>
+                  </div>
+                </div>
               </article>
             </div>
-          </div>
+          </section>
         ) : null}
       </FormModal>
     </section>

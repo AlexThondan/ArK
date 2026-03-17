@@ -38,3 +38,26 @@ export const adminNav = [
   { label: "Chat", to: "/chat", icon: MessageSquare },
   { label: "Settings", to: "/settings", icon: Settings }
 ];
+
+export const hrNav = [
+  { label: "HR Dashboard", to: "/admin/hr-dashboard", icon: ClipboardCheck },
+  { label: "Employees", to: "/admin/employees", icon: Users },
+  { label: "Leave", to: "/admin/leaves", icon: CalendarCheck2 },
+  { label: "Attendance", to: "/admin/attendance", icon: BarChart3 },
+  { label: "Reports", to: "/admin/reports", icon: FileText },
+  { label: "Profile", to: "/admin/profile", icon: IdCard },
+  { label: "Chat", to: "/chat", icon: MessageSquare },
+  { label: "Settings", to: "/settings", icon: Settings }
+];
+
+export const managerNav = [
+  { label: "Dashboard", to: "/manager/dashboard", icon: LayoutDashboard },
+  { label: "Profile", to: "/employee/profile", icon: IdCard },
+  { label: "Tasks", to: "/employee/tasks", icon: ClipboardList },
+  { label: "Leave", to: "/employee/leave", icon: CalendarCheck2 },
+  { label: "Attendance", to: "/employee/attendance", icon: BarChart3 },
+  { label: "Teams", to: "/employee/teams", icon: GitBranch },
+  { label: "Documents", to: "/employee/documents", icon: FileText },
+  { label: "Chat", to: "/chat", icon: MessageSquare },
+  { label: "Settings", to: "/settings", icon: Settings }
+];

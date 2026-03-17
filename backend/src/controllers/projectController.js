@@ -25,15 +25,25 @@ const normalizeMemberIds = (members = []) => {
   return [...new Set(members.map((member) => String(member || "").trim()).filter(Boolean))];
 };
 
-const formatProjectCode = (value) => String(value).padStart(3, "0");
+const formatProjectCode = (value) => `ARK-${String(value).padStart(3, "0")}`;
+
+const parseNumericProjectCode = (value) => {
+  const normalized = String(value || "")
+    .trim()
+    .toUpperCase();
+  if (!normalized) return 0;
+  if (/^ARK-\d+$/.test(normalized)) {
+    return Number(normalized.split("-")[1] || 0);
+  }
+  if (/^\d+$/.test(normalized)) {
+    return Number(normalized);
+  }
+  return 0;
+};
 
 const getMaxNumericProjectCode = async () => {
-  const rows = await Project.aggregate([
-    { $match: { code: { $regex: /^[0-9]+$/ } } },
-    { $project: { numericCode: { $toInt: "$code" } } },
-    { $group: { _id: null, maxCode: { $max: "$numericCode" } } }
-  ]);
-  return Number(rows?.[0]?.maxCode || 0);
+  const rows = await Project.find({ code: { $exists: true, $ne: null } }).select("code").lean();
+  return rows.reduce((maxValue, row) => Math.max(maxValue, parseNumericProjectCode(row.code)), 0);
 };
 
 const getNextProjectCode = async () => {

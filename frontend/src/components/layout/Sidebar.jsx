@@ -1,10 +1,14 @@
 import { NavLink } from "react-router-dom";
 import { Menu } from "lucide-react";
-import { adminNav, employeeNav } from "../../utils/constants";
+import { adminNav, employeeNav, hrNav, managerNav } from "../../utils/constants";
 import arkLogo from "../../assets/ark-logo.svg";
 
 const Sidebar = ({ role, open, collapsed, onToggleCollapse, onClose }) => {
-  const navItems = role === "admin" ? adminNav : employeeNav;
+  const navItems =
+    role === "admin" ? adminNav :
+    role === "hr" ? hrNav :
+    role === "manager" ? managerNav :
+    employeeNav;
 
   return (
     <aside className={`sidebar ${open ? "open" : ""} ${collapsed ? "collapsed" : ""}`}>

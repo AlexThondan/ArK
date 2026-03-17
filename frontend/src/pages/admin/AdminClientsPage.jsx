@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { Building2, PlusCircle, UploadCloud } from "lucide-react";
-import { City, Country, State } from "country-state-city";
 import { clientApi } from "../../api/hrmsApi";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import ErrorState from "../../components/common/ErrorState";
@@ -34,20 +33,6 @@ const AdminClientsPage = () => {
   const [form, setForm] = useState(initialClient);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
-  const countries = useMemo(() => Country.getAllCountries(), []);
-  const countryCode = useMemo(
-    () => countries.find((item) => item.name === form.country)?.isoCode || "",
-    [countries, form.country]
-  );
-  const states = useMemo(() => (countryCode ? State.getStatesOfCountry(countryCode) : []), [countryCode]);
-  const stateCode = useMemo(
-    () => states.find((item) => item.name === form.state)?.isoCode || "",
-    [states, form.state]
-  );
-  const cities = useMemo(
-    () => (countryCode && stateCode ? City.getCitiesOfState(countryCode, stateCode) : []),
-    [countryCode, stateCode]
-  );
 
   const loadData = useCallback(async () => {
     try {
@@ -235,60 +220,18 @@ const AdminClientsPage = () => {
           </label>
           <label>
             Country
-            <select
+            <input
               value={form.country}
-              onChange={(event) =>
-                setForm((prev) => ({
-                  ...prev,
-                  country: event.target.value,
-                  state: "",
-                  city: ""
-                }))
-              }
-            >
-              <option value="">Select country</option>
-              {countries.map((item) => (
-                <option key={item.isoCode} value={item.name}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
+              onChange={(event) => setForm((prev) => ({ ...prev, country: event.target.value }))}
+            />
           </label>
           <label>
             State
-            <select
-              value={form.state}
-              onChange={(event) =>
-                setForm((prev) => ({
-                  ...prev,
-                  state: event.target.value,
-                  city: ""
-                }))
-              }
-              disabled={!countryCode}
-            >
-              <option value="">{countryCode ? "Select state" : "Select country first"}</option>
-              {states.map((item) => (
-                <option key={item.isoCode} value={item.name}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
+            <input value={form.state} onChange={(event) => setForm((prev) => ({ ...prev, state: event.target.value }))} />
           </label>
           <label>
             City
-            <select
-              value={form.city}
-              onChange={(event) => setForm((prev) => ({ ...prev, city: event.target.value }))}
-              disabled={!stateCode}
-            >
-              <option value="">{stateCode ? "Select city" : "Select state first"}</option>
-              {cities.map((item) => (
-                <option key={`${item.name}-${item.latitude}-${item.longitude}`} value={item.name}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
+            <input value={form.city} onChange={(event) => setForm((prev) => ({ ...prev, city: event.target.value }))} />
           </label>
           <label>
             Contract Value

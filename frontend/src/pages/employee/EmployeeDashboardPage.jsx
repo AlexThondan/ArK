@@ -69,6 +69,21 @@ const EmployeeDashboardPage = () => {
     []
   );
 
+  const profileCompletionScore = useMemo(() => {
+    const keys = [
+      profile?.firstName,
+      profile?.lastName,
+      profile?.phone,
+      profile?.department,
+      profile?.designation,
+      profile?.employeeId,
+      profile?.personalEmail,
+      profile?.avatarUrl
+    ];
+    const done = keys.filter(Boolean).length;
+    return Math.round((done / keys.length) * 100);
+  }, [profile]);
+
   if (state.loading) return <LoadingSpinner label="Loading employee dashboard..." />;
   if (state.error) return <ErrorState message={state.error} onRetry={loadData} />;
 
@@ -94,21 +109,6 @@ const EmployeeDashboardPage = () => {
   const taskCompletionScore = totalTaskCount
     ? Math.round(((state.data?.taskSummary?.completed || 0) / totalTaskCount) * 100)
     : 0;
-  const profileCompletionScore = useMemo(() => {
-    const keys = [
-      profile?.firstName,
-      profile?.lastName,
-      profile?.phone,
-      profile?.department,
-      profile?.designation,
-      profile?.employeeId,
-      profile?.personalEmail,
-      profile?.avatarUrl
-    ];
-    const done = keys.filter(Boolean).length;
-    return Math.round((done / keys.length) * 100);
-  }, [profile]);
-
   const greeting =
     new Date().getHours() < 12
       ? "Good Morning"

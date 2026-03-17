@@ -16,6 +16,14 @@ const taskAttachmentSchema = new mongoose.Schema(
 
 const taskChecklistSchema = new mongoose.Schema(
   {
+    taskCode: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      unique: true,
+      sparse: true,
+      index: true
+    },
     title: {
       type: String,
       required: true,

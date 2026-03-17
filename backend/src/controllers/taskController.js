@@ -5,6 +5,7 @@ const ApiError = require("../utils/ApiError");
 const asyncHandler = require("../utils/asyncHandler");
 const { buildPagination } = require("../utils/pagination");
 const { createNotification } = require("../utils/notificationService");
+const { generateTaskId, generateTaskIds } = require("../utils/taskId");
 
 const normalizeChecklists = (checklists = []) => {
   if (!Array.isArray(checklists)) return [];
@@ -42,6 +43,25 @@ const normalizeTaskUpdatePayload = (body = {}) => {
   return payload;
 };
 
+const backfillTaskCodes = async (rows = []) => {
+  const missing = rows.filter((row) => !String(row?.taskCode || "").trim());
+  if (!missing.length) return;
+
+  const generatedCodes = await generateTaskIds(missing.length);
+  await Promise.all(
+    missing.map((row, index) =>
+      Task.updateOne(
+        { _id: row._id },
+        { $set: { taskCode: generatedCodes[index] } }
+      )
+    )
+  );
+
+  missing.forEach((row, index) => {
+    row.taskCode = generatedCodes[index];
+  });
+};
+
 /**
  * @desc Create task and assign to employee
  * @route POST /api/tasks
@@ -77,8 +97,10 @@ const createTask = asyncHandler(async (req, res) => {
     if (!users.length) {
       throw new ApiError(400, "Assigned team has no active members");
     }
+    const taskCodes = await generateTaskIds(users.length);
 
     const taskPayloads = users.map((user) => ({
+      taskCode: taskCodes.shift(),
       title,
       assignedTo: user._id,
       assignedTeam: team._id,
@@ -122,6 +144,7 @@ const createTask = asyncHandler(async (req, res) => {
   }
 
   const task = await Task.create({
+    taskCode: await generateTaskId(),
     title,
     assignedTo,
     description,
@@ -174,6 +197,8 @@ const getMyTasks = asyncHandler(async (req, res) => {
     Task.countDocuments(filter)
   ]);
 
+  await backfillTaskCodes(items);
+
   res.status(200).json({
     success: true,
     data: items,
@@ -213,6 +238,8 @@ const getAdminTasks = asyncHandler(async (req, res) => {
       .limit(parsedLimit),
     Task.countDocuments(filter)
   ]);
+
+  await backfillTaskCodes(items);
 
   res.status(200).json({
     success: true,

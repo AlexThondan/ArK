@@ -31,10 +31,10 @@ router.put("/me/avatar", protect, upload.single("avatar"), updateMyAvatar);
  * PUT /api/employees/:id
  * DELETE /api/employees/:id
  */
-router.get("/", protect, allowRoles("admin"), getEmployees);
-router.post("/", protect, allowRoles("admin"), createEmployee);
-router.get("/:id", protect, allowRoles("admin"), getEmployeeById);
-router.put("/:id", protect, allowRoles("admin"), updateEmployee);
-router.delete("/:id", protect, allowRoles("admin"), deleteEmployee);
+router.get("/", protect, allowRoles("admin", "hr"), getEmployees);
+router.post("/", protect, allowRoles("admin", "hr"), createEmployee);
+router.get("/:id", protect, allowRoles("admin", "hr"), getEmployeeById);
+router.put("/:id", protect, allowRoles("admin", "hr"), updateEmployee);
+router.delete("/:id", protect, allowRoles("admin", "hr"), deleteEmployee);
 
 module.exports = router;

@@ -24,7 +24,7 @@ const router = express.Router();
  * POST /api/tasks/:id/attachments
  */
 router.post("/", protect, allowRoles("admin"), createTask);
-router.get("/me", protect, allowRoles("employee"), getMyTasks);
+router.get("/me", protect, allowRoles("employee", "manager"), getMyTasks);
 router.get("/admin", protect, allowRoles("admin"), getAdminTasks);
 router.patch("/:id", protect, allowRoles("admin"), updateTask);
 router.patch("/:id/status", protect, updateTaskStatus);

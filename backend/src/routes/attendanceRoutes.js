@@ -16,15 +16,15 @@ const router = express.Router();
  * POST /api/attendance/check-out
  * GET /api/attendance/me
  */
-router.post("/check-in", protect, allowRoles("employee"), checkIn);
-router.post("/check-out", protect, allowRoles("employee"), checkOut);
-router.get("/me", protect, allowRoles("employee"), getMyAttendance);
+router.post("/check-in", protect, allowRoles("employee", "manager"), checkIn);
+router.post("/check-out", protect, allowRoles("employee", "manager"), checkOut);
+router.get("/me", protect, allowRoles("employee", "manager"), getMyAttendance);
 
 /**
  * GET /api/attendance/admin
  * GET /api/attendance/admin/export
  */
-router.get("/admin/export", protect, allowRoles("admin"), exportAttendanceCsv);
-router.get("/admin", protect, allowRoles("admin"), getAllAttendance);
+router.get("/admin/export", protect, allowRoles("admin", "hr"), exportAttendanceCsv);
+router.get("/admin", protect, allowRoles("admin", "hr"), getAllAttendance);
 
 module.exports = router;

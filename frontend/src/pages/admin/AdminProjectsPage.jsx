@@ -6,6 +6,7 @@ import LoadingSpinner from "../../components/common/LoadingSpinner";
 import ErrorState from "../../components/common/ErrorState";
 import FormModal from "../../components/common/FormModal";
 import ProgressPie3D from "../../components/charts/ProgressPie3D";
+import StatusBadge from "../../components/common/StatusBadge";
 import { formatCurrency, formatDate, resolveFileUrl } from "../../utils/format";
 
 const clampProgress = (value) => {
@@ -13,6 +14,16 @@ const clampProgress = (value) => {
   if (Number.isNaN(parsed)) return 0;
   return Math.max(0, Math.min(100, parsed));
 };
+
+const parseArkNumeric = (value) => {
+  const normalized = String(value || "").trim().toUpperCase();
+  if (!normalized) return 0;
+  if (/^ARK-\d+$/.test(normalized)) return Number(normalized.split("-")[1] || 0);
+  if (/^\d+$/.test(normalized)) return Number(normalized);
+  return 0;
+};
+
+const formatArkCode = (value) => `ARK-${String(value).padStart(3, "0")}`;
 
 const initialProject = {
   name: "",
@@ -29,6 +40,7 @@ const initialProject = {
 };
 
 const initialTask = {
+  taskCode: "",
   title: "",
   assignMode: "employee",
   assignedTo: "",
@@ -119,12 +131,20 @@ const AdminProjectsPage = () => {
   );
 
   const nextProjectCode = useMemo(() => {
-    const numericCodes = state.projects
-      .map((project) => Number(project.code))
-      .filter((value) => Number.isInteger(value) && value >= 0);
-    const maxCode = numericCodes.length ? Math.max(...numericCodes) : 0;
-    return String(maxCode + 1).padStart(3, "0");
+    const maxCode = (state.projects || []).reduce(
+      (maxValue, project) => Math.max(maxValue, parseArkNumeric(project.code)),
+      0
+    );
+    return formatArkCode(maxCode + 1);
   }, [state.projects]);
+
+  const nextTaskCode = useMemo(() => {
+    const maxCode = (state.tasks || []).reduce(
+      (maxValue, task) => Math.max(maxValue, parseArkNumeric(task.taskCode)),
+      0
+    );
+    return formatArkCode(maxCode + 1);
+  }, [state.tasks]);
 
   const closeProjectModal = () => {
     setShowProjectModal(false);
@@ -164,6 +184,7 @@ const AdminProjectsPage = () => {
   const openTaskEditor = (task) => {
     setEditingTaskId(task._id);
     setTaskForm({
+      taskCode: task.taskCode || "",
       title: task.title || "",
       assignMode: task.assignedTeam ? "team" : "employee",
       assignedTo: task.assignedTo?._id || task.assignedTo || "",
@@ -324,6 +345,13 @@ const AdminProjectsPage = () => {
     return { activeProjects, completionRate, totalBudget };
   }, [state.projects, state.tasks]);
 
+  const featuredProjects = useMemo(() => {
+    return [...state.projects]
+      .filter((project) => project.status !== "completed")
+      .sort((a, b) => clampProgress(b.progress || 0) - clampProgress(a.progress || 0))
+      .slice(0, 3);
+  }, [state.projects]);
+
   const renderProjectAssignees = (project) => {
     if (project.assignmentType === "team") {
       return <span>Team: {project.assignedTeam?.name || "-"}</span>;
@@ -410,60 +438,97 @@ const AdminProjectsPage = () => {
         </article>
       </div>
 
-      <section className="card">
+      <section className="card project-highlight-card">
+        <div className="card-head">
+          <div>
+            <h3>Project highlights</h3>
+            <p className="muted">Focus on the highest progress deliveries.</p>
+          </div>
+        </div>
+        <div className="project-highlight-grid">
+          {featuredProjects.length ? (
+            featuredProjects.map((project) => {
+              const progressValue = clampProgress(projectDrafts[project._id]?.progress ?? project.progress ?? 0);
+              return (
+                <article className="project-highlight-tile" key={project._id}>
+                  <div className="project-highlight-header">
+                    <div>
+                      <strong>{project.name}</strong>
+                      <small className="muted">{project.code || "ARK-000"}</small>
+                    </div>
+                    <StatusBadge status={project.status} />
+                  </div>
+                  <p className="muted two-line">{project.description || "No summary provided yet."}</p>
+                  <div className="project-highlight-meta">
+                    <div>
+                      <small className="summary-label">Client</small>
+                      <span>{project.client?.company || "Unassigned"}</span>
+                    </div>
+                    <div>
+                      <small className="summary-label">Assigned</small>
+                      <div className="project-assignee-chip">{renderProjectAssignees(project)}</div>
+                    </div>
+                    <div>
+                      <small className="summary-label">Timeline</small>
+                      <span>
+                        {formatDate(project.startDate) || "TBD"} → {formatDate(project.endDate) || "TBD"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="project-highlight-footer">
+                    <div className="project-highlight-progress">
+                      <ProgressPie3D value={progressValue} />
+                      <span>{progressValue}%</span>
+                    </div>
+                    <button className="btn btn-outline" type="button" onClick={() => openProjectEditor(project)}>
+                      Manage
+                    </button>
+                  </div>
+                </article>
+              );
+            })
+          ) : (
+            <p className="muted">No featured projects yet. Create one to populate this space.</p>
+          )}
+        </div>
+      </section>
+      <section className="card project-board">
         <div className="card-head">
           <h3>Projects</h3>
         </div>
-        <div className="table-wrap">
-          <table className="table-unified">
-            <thead>
-              <tr>
-                <th>Project</th>
-                <th>Code</th>
-                <th>Assigned To</th>
-                <th>Client</th>
-                <th>Budget</th>
-                <th>Checklist</th>
-                <th>Status</th>
-                <th>Progress</th>
-                <th>Start</th>
-                <th>End</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {state.projects.map((project) => (
-                <tr key={project._id}>
-                  <td>{project.name}</td>
-                  <td>{project.code}</td>
-                  <td>{renderProjectAssignees(project)}</td>
-                  <td>
-                    <div className="list-identity">
-                      <div className="avatar-cell small">
-                        {project.client?.logoUrl ? (
-                          <img
-                            className="avatar-img"
-                            src={resolveFileUrl(project.client.logoUrl)}
-                            alt={project.client?.company || "Client"}
-                          />
-                        ) : (
-                          <span className="avatar-fallback">{(project.client?.company || "C").slice(0, 1)}</span>
-                        )}
-                      </div>
-                      <div>
-                        <strong>{project.client?.company || "-"}</strong>
-                      </div>
-                    </div>
-                  </td>
-                  <td>{formatCurrency(project.budget || 0)}</td>
-                  <td>
-                    {(project.checklists || []).length ? (
-                      <span>{(project.checklists || []).length} item(s)</span>
-                    ) : (
-                      <span className="muted">-</span>
-                    )}
-                  </td>
-                  <td>
+        <div className="project-card-grid">
+          {state.projects.map((project) => (
+            <article className="project-card" key={project._id}>
+              <div className="project-card-top">
+                <div>
+                  <small className="project-code">{project.code || "ARK-000"}</small>
+                  <h4>{project.name}</h4>
+                  <p className="muted two-line">{project.description || project.client?.company || "Client project"}</p>
+                </div>
+                <span className={`project-status-pill ${project.status || "planning"}`}>
+                  {project.status?.split(/[-_\\s]+/).map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1)).join(" ") ||
+                    "Planning"}
+                </span>
+              </div>
+              <div className="project-card-meta">
+                <div>
+                  <p className="muted">Client</p>
+                  <strong>{project.client?.company || "—"}</strong>
+                </div>
+                <div>
+                  <p className="muted">Assigned</p>
+                  <div className="project-assignee-chip">{renderProjectAssignees(project)}</div>
+                </div>
+                <div>
+                  <p className="muted">Budget</p>
+                  <strong>{formatCurrency(project.budget || 0)}</strong>
+                </div>
+              </div>
+              <div className="project-card-progress">
+                <ProgressPie3D value={projectDrafts[project._id]?.progress ?? project.progress ?? 0} />
+                <div className="project-progress-controls">
+                  <label>
+                    Status
                     <select
                       value={projectDrafts[project._id]?.status || project.status}
                       onChange={(event) =>
@@ -481,47 +546,53 @@ const AdminProjectsPage = () => {
                       <option value="on-hold">On Hold</option>
                       <option value="completed">Completed</option>
                     </select>
-                  </td>
-                  <td>
-                    <div className="progress-edit pie-edit">
-                      <ProgressPie3D value={projectDrafts[project._id]?.progress ?? project.progress ?? 0} />
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={projectDrafts[project._id]?.progress ?? project.progress ?? 0}
-                        onChange={(event) =>
-                          setProjectDrafts((prev) => ({
-                            ...prev,
-                            [project._id]: {
-                              ...(prev[project._id] || {}),
-                              progress: clampProgress(event.target.value)
-                            }
-                          }))
-                        }
-                      />
-                    </div>
-                  </td>
-                  <td>{formatDate(project.startDate)}</td>
-                  <td>{formatDate(project.endDate)}</td>
-                  <td>
-                    <div className="button-row">
-                      <button className="btn btn-outline" type="button" onClick={() => openProjectEditor(project)}>
-                        Edit
-                      </button>
-                      <button className="btn btn-primary" type="button" onClick={() => saveProjectProgress(project._id)}>
-                        Save
-                      </button>
-                      <button className="btn btn-danger" type="button" onClick={() => deleteProject(project)}>
-                        <Trash2 size={14} />
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </label>
+                  <label>
+                    Progress
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={projectDrafts[project._id]?.progress ?? project.progress ?? 0}
+                      onChange={(event) =>
+                        setProjectDrafts((prev) => ({
+                          ...prev,
+                          [project._id]: {
+                            ...(prev[project._id] || {}),
+                            progress: clampProgress(event.target.value)
+                          }
+                        }))
+                      }
+                    />
+                  </label>
+                </div>
+              </div>
+              <div className="project-card-details">
+                <div>
+                  <p className="muted">Timeline</p>
+                  <small>
+                    {formatDate(project.startDate)} → {formatDate(project.endDate)}
+                  </small>
+                </div>
+                <div>
+                  <p className="muted">Checklist</p>
+                  <small>{(project.checklists || []).length || "-"} item(s)</small>
+                </div>
+              </div>
+              <div className="project-card-actions">
+                <button className="btn btn-outline" type="button" onClick={() => openProjectEditor(project)}>
+                  Edit
+                </button>
+                <button className="btn btn-primary" type="button" onClick={() => saveProjectProgress(project._id)}>
+                  Save
+                </button>
+                <button className="btn btn-danger" type="button" onClick={() => deleteProject(project)}>
+                  <Trash2 size={14} />
+                  Delete
+                </button>
+              </div>
+            </article>
+          ))}
         </div>
       </section>
 
@@ -540,6 +611,7 @@ const AdminProjectsPage = () => {
                   return (
                     <article className="kanban-card" key={task._id}>
                       <strong>{task.title}</strong>
+                      <small>{task.taskCode || "-"}</small>
                       <p className="task-chip">{task.priority}</p>
                       {task.description ? <p className="two-line">{task.description}</p> : null}
                       <small>
@@ -762,6 +834,10 @@ const AdminProjectsPage = () => {
 
       <FormModal title={editingTaskId ? "Edit Assignment" : "Assign Task"} open={showTaskModal} onClose={closeTaskModal}>
         <form className="form-grid" onSubmit={createTask}>
+          <label>
+            Task ID
+            <input value={editingTaskId ? taskForm.taskCode || "-" : nextTaskCode} disabled />
+          </label>
           <label>
             Task Title
             <input

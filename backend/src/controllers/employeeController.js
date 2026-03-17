@@ -6,9 +6,12 @@ const { buildPagination } = require("../utils/pagination");
 const { generateEmployeeId } = require("../utils/employeeId");
 
 const DEFAULT_EMPLOYEE_PASSWORD = process.env.DEFAULT_EMPLOYEE_PASSWORD || "Emp@12345";
+const ROLE_EMPLOYEE = "employee";
+const ROLE_HR = "hr";
+const ROLE_MANAGER = "manager";
+const ROLE_ADMIN = "admin";
 
 const pickProfilePayload = (body) => ({
-  employeeId: body.employeeId,
   firstName: body.firstName,
   lastName: body.lastName,
   phone: body.phone,
@@ -38,16 +41,47 @@ const pickProfilePayload = (body) => ({
   leaveBalance: body.leaveBalance
 });
 
+const isHrRequester = (req) => req.user?.role === ROLE_HR;
+
+const getAllowedAssignableRoles = (actorRole) =>
+  actorRole === ROLE_ADMIN ? [ROLE_EMPLOYEE, ROLE_HR, ROLE_MANAGER] : [ROLE_EMPLOYEE];
+
+const resolveAssignableRole = ({ requestedRole, actorRole }) => {
+  const normalizedRole = String(requestedRole || ROLE_EMPLOYEE)
+    .trim()
+    .toLowerCase();
+  const allowedRoles = getAllowedAssignableRoles(actorRole);
+  if (!allowedRoles.includes(normalizedRole)) {
+    throw new ApiError(
+      403,
+      actorRole === ROLE_HR
+        ? "HR can create or assign only employee role"
+        : "Only employee, hr, or manager role is allowed for this action"
+    );
+  }
+  return normalizedRole;
+};
+
+const ensureHrCanManageTarget = (req, targetRole) => {
+  if (isHrRequester(req) && targetRole !== ROLE_EMPLOYEE) {
+    throw new ApiError(403, "HR can manage employee accounts only");
+  }
+};
+
 /**
  * @desc Create an employee and login account
  * @route POST /api/employees
  * @access Admin
  */
 const createEmployee = asyncHandler(async (req, res) => {
-  const { email, password, role = "employee" } = req.body;
+  const { email, password, role = ROLE_EMPLOYEE } = req.body;
   const profilePayload = pickProfilePayload(req.body);
   const normalizedEmail = String(email || "").trim().toLowerCase();
   const loginPassword = String(password || "").trim() || DEFAULT_EMPLOYEE_PASSWORD;
+  const assignedRole = resolveAssignableRole({
+    requestedRole: role,
+    actorRole: req.user?.role
+  });
 
   if (
     !normalizedEmail ||
@@ -74,21 +108,13 @@ const createEmployee = asyncHandler(async (req, res) => {
   const user = await User.create({
     email: normalizedEmail,
     password: loginPassword,
-    role
+    role: assignedRole
   });
 
   try {
-    if (!profilePayload.employeeId) {
-      profilePayload.employeeId = await generateEmployeeId();
-    } else {
-      profilePayload.employeeId = profilePayload.employeeId.toString().trim().toUpperCase();
-      if (!/^ARK-\d+$/i.test(profilePayload.employeeId)) {
-        profilePayload.employeeId = await generateEmployeeId();
-      }
-    }
-
     const employee = await Employee.create({
       user: user._id,
+      employeeId: await generateEmployeeId(),
       ...profilePayload
     });
 
@@ -135,7 +161,11 @@ const getEmployees = asyncHandler(async (req, res) => {
   if (designation) matchEmployee.designation = designation;
 
   const matchUser = {};
-  if (role) matchUser["user.role"] = role;
+  if (isHrRequester(req)) {
+    matchUser["user.role"] = ROLE_EMPLOYEE;
+  } else if (role) {
+    matchUser["user.role"] = String(role).trim().toLowerCase();
+  }
   if (typeof isActive !== "undefined") matchUser["user.isActive"] = isActive === "true";
 
   const basePipeline = [
@@ -219,6 +249,8 @@ const getEmployeeById = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Employee not found");
   }
 
+  ensureHrCanManageTarget(req, employee.user?.role);
+
   if (!employee.employeeId || !/^ARK-\d+$/i.test(String(employee.employeeId))) {
     employee.employeeId = await generateEmployeeId();
     await employee.save();
@@ -241,24 +273,34 @@ const updateEmployee = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Employee not found");
   }
 
+  const targetUser = await User.findById(req.params.id).select("_id role isActive");
+  if (!targetUser) {
+    throw new ApiError(404, "User not found");
+  }
+  ensureHrCanManageTarget(req, targetUser.role);
+
   const profilePayload = pickProfilePayload(req.body);
   Object.keys(profilePayload).forEach((key) => {
     if (typeof profilePayload[key] !== "undefined") employee[key] = profilePayload[key];
   });
 
-  if (profilePayload.employeeId) {
-    const incomingId = profilePayload.employeeId.toString().trim().toUpperCase();
-    employee.employeeId = /^ARK-\d+$/i.test(incomingId) ? incomingId : await generateEmployeeId();
-  } else if (!employee.employeeId) {
+  if (!employee.employeeId) {
     employee.employeeId = await generateEmployeeId();
   }
 
   await employee.save();
 
   const userUpdates = {};
-  if (typeof req.body.role !== "undefined") userUpdates.role = req.body.role;
+  if (typeof req.body.role !== "undefined") {
+    userUpdates.role = resolveAssignableRole({
+      requestedRole: req.body.role,
+      actorRole: req.user?.role
+    });
+  }
   if (typeof req.body.isActive !== "undefined") userUpdates.isActive = req.body.isActive;
-  if (typeof req.body.email !== "undefined") userUpdates.email = String(req.body.email || "").trim().toLowerCase();
+  if (typeof req.body.email !== "undefined") {
+    userUpdates.email = String(req.body.email || "").trim().toLowerCase();
+  }
 
   if (Object.keys(userUpdates).length > 0) {
     await User.findByIdAndUpdate(req.params.id, userUpdates, { runValidators: true });
@@ -281,6 +323,10 @@ const deleteEmployee = asyncHandler(async (req, res) => {
   if (!user) {
     throw new ApiError(404, "User not found");
   }
+  if (user.role === ROLE_ADMIN) {
+    throw new ApiError(403, "Admin accounts cannot be deactivated from employee management");
+  }
+  ensureHrCanManageTarget(req, user.role);
 
   user.isActive = false;
   await user.save();
