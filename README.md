@@ -11,29 +11,21 @@ Production-ready HR Management System with secure Node/Express API, MongoDB, JWT
 
 ## Visual Showcase
 
-### Admin Dashboard
-![Admin Dashboard](./screenshots/admin_dashboard.png)
+| Admin Dashboard | HR Analytics |
+| :---: | :---: |
+| <a href="./screenshots/admin_dashboard.png"><img src="./screenshots/admin_dashboard.png" height="200" alt="Admin Dashboard"></a> | <a href="./screenshots/hr_dashboard.png"><img src="./screenshots/hr_dashboard.png" height="200" alt="HR Analytics"></a> |
 
-### HR Analytics
-![HR Analytics](./screenshots/hr_dashboard.png)
+| Employee Management | Project Management |
+| :---: | :---: |
+| <a href="./screenshots/employee_management.png"><img src="./screenshots/employee_management.png" height="200" alt="Employee Management"></a> | <a href="./screenshots/project_management.png"><img src="./screenshots/project_management.png" height="200" alt="Project Management"></a> |
 
-### Employee Management
-![Employee Management](./screenshots/employee_management.png)
+| Employee Dashboard | Task Management |
+| :---: | :---: |
+| <a href="./screenshots/employee_dashboard.png"><img src="./screenshots/employee_dashboard.png" height="200" alt="Employee Dashboard"></a> | <a href="./screenshots/employee_tasks.png"><img src="./screenshots/employee_tasks.png" height="200" alt="Task Management"></a> |
 
-### Project Management
-![Project Management](./screenshots/project_management.png)
-
-### Employee Dashboard
-![Employee Dashboard](./screenshots/employee_dashboard.png)
-
-### Task Management
-![Task Management](./screenshots/employee_tasks.png)
-
-### Employee Profile
-![Employee Profile](./screenshots/employee_profile.png)
-
-### Team Management
-![Team Management](./screenshots/team_management.png)
+| Employee Profile | Team Management |
+| :---: | :---: |
+| <a href="./screenshots/employee_profile.png"><img src="./screenshots/employee_profile.png" height="200" alt="Employee Profile"></a> | <a href="./screenshots/team_management.png"><img src="./screenshots/team_management.png" height="200" alt="Team Management"></a> |
 
 ## Monorepo Structure
 
