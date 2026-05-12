@@ -219,7 +219,7 @@ const AdminHrDashboardPage = () => {
           data={leaveTrendData}
           xKey="month"
           lines={[
-            { dataKey: "requests", color: "#0f5a73", name: "Requests", showArea: true },
+            { dataKey: "requests", color: "#0f5a73", name: "Requests" },
             { dataKey: "days", color: "#f97316", name: "Days" }
           ]}
         />

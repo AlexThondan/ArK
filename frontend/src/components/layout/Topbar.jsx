@@ -283,9 +283,6 @@ const Topbar = ({ onOpenSidebar }) => {
   return (
     <header className="topbar" ref={topbarRef}>
       <div className="topbar-left">
-        <button className="icon-btn mobile-only" onClick={onOpenSidebar} type="button" aria-label="Open menu">
-          <Menu size={18} />
-        </button>
       </div>
 
       <div className="topbar-center">

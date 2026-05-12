@@ -676,16 +676,16 @@ textarea {
 }
 
 .table-unified th {
-  color: #4b5f7d;
+  color: #ffffff;
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  background: linear-gradient(180deg, #edf4ff, #e6f0ff);
+  background: #111111;
 }
 
 .table-unified td .button-row {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
   justify-content: flex-start;
 }
@@ -6199,19 +6199,19 @@ textarea:focus {
 }
 
 .chat-contact-item.active {
-  background: #0f172a;
+  background: #e0f2fe;
 }
 
 .chat-contact-item.active .chat-contact-name {
-  color: #ffffff;
+  color: #0369a1;
 }
 
 .chat-contact-item.active .chat-contact-preview {
-  color: rgba(255, 255, 255, 0.7);
+  color: #0284c7;
 }
 
 .chat-contact-item.active .chat-contact-time {
-  color: rgba(255, 255, 255, 0.55);
+  color: #0ea5e9;
 }
 
 .chat-contact-avatar {
@@ -8087,8 +8087,749 @@ textarea:focus {
   white-space: nowrap;
 }
 
+
+
+
+/* Project Management Styles */
+.project-highlight-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.project-highlight-tile {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.project-highlight-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.project-highlight-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.project-highlight-header strong {
+  display: block;
+  font-size: 1rem;
+  margin-bottom: 2px;
+}
+
+.project-highlight-meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  background: var(--bg);
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+}
+
+.summary-label {
+  display: block;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.project-assignee-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.project-highlight-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.project-highlight-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.project-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.project-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.project-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.project-code {
+  color: var(--primary);
+  font-weight: 600;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.project-card-meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.project-card-progress {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--bg);
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.project-progress-controls {
+  flex: 1;
+  display: grid;
+  gap: 8px;
+}
+
+.project-progress-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.project-card-details {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 0;
+  font-size: 0.85rem;
+}
+
+.project-card-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .btn-xs {
-  padding: 5px 10px;
-  font-size: 0.72rem;
-  min-height: 30px;
+  min-width: 28px !important;
+  width: 28px !important;
+  height: 28px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.table-actions-row {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  gap: 6px !important;
+  white-space: nowrap !important;
+}
+
+
+/* Employee Profile Page Styles */
+.profile-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  background: white;
+  padding: 32px;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+  margin-bottom: 24px;
+  border: 1px solid #e2e8f0;
+}
+
+.profile-hero-main {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+
+.profile-avatar-large {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 4px solid #f8fafc;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e2e8f0;
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.profile-avatar-large img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-hero-subtitle {
+  font-size: 1.1rem;
+  color: #475569;
+  font-weight: 500;
+  margin-top: 4px;
+}
+
+.hero-contact-row {
+  display: flex;
+  gap: 32px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.hero-contact-row div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hero-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.hero-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.profile-tab-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 2px;
+  flex-wrap: wrap;
+}
+
+.profile-tab {
+  padding: 12px 24px;
+  background: none;
+  border: none;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.profile-tab.active, .profile-tab:hover {
+  color: #0f172a;
+  border-bottom-color: #0ea5e9;
+}
+
+.profile-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.profile-info-card {
+  padding: 24px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.03);
+  border: 1px solid #e2e8f0;
+}
+
+.profile-section-head {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.profile-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 20px;
+}
+
+.profile-info-grid div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.profile-form-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.profile-doc-list, .leave-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.doc-item, .leave-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #f1f5f9;
+}
+
+.leave-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.benefit-card {
+  padding: 16px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-radius: 12px;
+  border: 1px solid #bae6fd;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Employee Tasks Page Styles */
+.task-hero-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 24px;
+  padding: 24px;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  color: white;
+  border-radius: 16px;
+  margin-bottom: 32px;
+}
+
+.task-hero-stat strong {
+  font-size: 2rem;
+  display: block;
+  margin: 8px 0;
+}
+
+.task-hero-stat .muted {
+  color: #94a3b8 !important;
+}
+
+.task-focus-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+  padding: 24px;
+}
+
+.task-focus-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.task-focus-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.task-focus-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.task-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.task-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.task-card-head {
+  padding: 20px;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: space-between;
+  background: #f8fafc;
+  gap: 16px;
+}
+
+.task-card-left {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.task-card-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.task-priority {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  width: fit-content;
+}
+
+.task-priority.high, .task-priority.critical { background: #fee2e2; color: #ef4444; }
+.task-priority.medium { background: #fef3c7; color: #f59e0b; }
+.task-priority.low { background: #dcfce7; color: #10b981; }
+
+.task-card-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.task-card-progress {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.task-card-progress div {
+  flex: 1;
+  display: flex;
+  gap: 16px;
+  min-width: 200px;
+}
+
+.checklist-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #f8fafc;
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.checklist-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.checklist-copy strong {
+  display: block;
+}
+
+.task-card-update {
+  border-top: 1px solid #f1f5f9;
+  padding-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.task-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Chat Enhancements */
+.chat-contact-item.active {
+  background: #111111 !important;
+}
+
+.chat-contact-item.active .chat-contact-name,
+.chat-contact-item.active .chat-contact-preview,
+.chat-contact-item.active .chat-contact-time {
+  color: #ffffff !important;
+}
+
+.chat-emoji-wrap {
+  position: relative;
+}
+
+.emoji-picker-panel {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  padding: 12px;
+  margin-bottom: 8px;
+  z-index: 100;
+  width: max-content;
+}
+
+.emoji-btn {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  padding: 4px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.emoji-btn:hover {
+  background: #f1f5f9;
+}
+
+.chat-attachment-wrap {
+  margin-bottom: 8px;
+}
+
+.chat-img-attachment {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 8px;
+  display: block;
+}
+
+.chat-file-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 6px;
+  text-decoration: none;
+  color: inherit;
+  font-size: 0.9rem;
+  transition: background 0.2s;
+}
+
+.chat-file-link:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.chat-text-content {
+  margin: 0;
+}
+
+.chat-bubble.bubble-me .chat-file-link {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.chat-bubble.bubble-me .chat-file-link:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+
+/* Enhanced Chat Styles */
+.chat-input-wrapper {
+  position: relative;
+  border-top: 1px solid #e2e8f0;
+  background: white;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat-file-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f1f5f9;
+  padding: 6px 12px;
+  border-radius: 6px;
+  width: fit-content;
+  font-size: 0.8rem;
+  color: #475569;
+}
+
+.chat-file-preview button {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+}
+
+.chat-file-preview button:hover {
+  color: #ef4444;
+}
+
+.chat-emoji-picker-container {
+  position: absolute;
+  bottom: 100%;
+  right: 16px;
+  z-index: 1000;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.chat-file-attachment {
+  margin-bottom: 8px;
+}
+
+.chat-img-preview {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 8px;
+  display: block;
+  cursor: pointer;
+  border: 1px solid #e2e8f0;
+}
+
+.chat-file-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  min-width: 200px;
+}
+
+.bubble-me .chat-file-card {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.chat-file-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.file-name {
+  font-weight: 500;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-file-download {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: #f1f5f9;
+  border-radius: 50%;
+  color: #475569;
+  transition: all 0.2s;
+}
+
+.bubble-me .chat-file-download {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.chat-file-download:hover {
+  background: #e2e8f0;
+  transform: translateY(-1px);
+}
+
+.bubble-me .chat-file-download:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.chat-input-area .icon-btn.active {
+  color: #0ea5e9;
+  background: #f0f9ff;
+}
+
+.chat-text {
+  word-break: break-word;
+}
+
+/* Ensure active contact is readable */
+.chat-contact-item.active {
+  background: #111111 !important;
+  border-left: 4px solid #0ea5e9;
+}
+
+.chat-contact-item.active .chat-contact-name,
+.chat-contact-item.active .chat-contact-preview,
+.chat-contact-item.active .chat-contact-time,
+.chat-contact-item.active .chat-contact-preview p {
+  color: #ffffff !important;
+}
+
+.chat-contact-item.active .chat-contact-avatar {
+  border: 2px solid #0ea5e9;
 }

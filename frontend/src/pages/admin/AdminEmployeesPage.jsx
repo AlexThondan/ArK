@@ -316,21 +316,19 @@ const AdminEmployeesPage = () => {
                     <StatusBadge status={row.user?.isActive ? "active" : "inactive"} />
                   </td>
                   <td className="button-row table-actions-row">
-                    <button className="btn btn-outline btn-xs" type="button" onClick={() => setShowView(row)}>
+                    <button className="btn btn-outline btn-xs" type="button" onClick={() => setShowView(row)} title="View">
                       <Eye size={14} />
-                      View
                     </button>
-                    <button className="btn btn-outline btn-xs" type="button" onClick={() => setEditing(mapRowToEdit(row))}>
+                    <button className="btn btn-outline btn-xs" type="button" onClick={() => setEditing(mapRowToEdit(row))} title="Edit">
                       <Pencil size={14} />
-                      Edit
                     </button>
                     <button
                       className={row.user?.isActive ? "btn btn-danger btn-xs" : "btn btn-primary btn-xs"}
                       type="button"
                       onClick={() => toggleActive(row)}
+                      title={row.user?.isActive ? "Deactivate" : "Activate"}
                     >
                       {row.user?.isActive ? <PowerOff size={14} /> : <Power size={14} />}
-                      {row.user?.isActive ? "Deactivate" : "Activate"}
                     </button>
                   </td>
                 </tr>

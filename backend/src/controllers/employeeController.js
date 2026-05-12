@@ -297,7 +297,12 @@ const updateEmployee = asyncHandler(async (req, res) => {
       actorRole: req.user?.role
     });
   }
-  if (typeof req.body.isActive !== "undefined") userUpdates.isActive = req.body.isActive;
+  if (typeof req.body.isActive !== "undefined") {
+    if (targetUser.role === ROLE_ADMIN && req.body.isActive === false) {
+      throw new ApiError(403, "Admin accounts cannot be deactivated");
+    }
+    userUpdates.isActive = req.body.isActive;
+  }
   if (typeof req.body.email !== "undefined") {
     userUpdates.email = String(req.body.email || "").trim().toLowerCase();
   }

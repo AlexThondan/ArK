@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { PlusCircle, Users2 } from "lucide-react";
+import { PlusCircle, Users2, Pencil, Power, PowerOff } from "lucide-react";
 import { employeeApi, teamApi } from "../../api/hrmsApi";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import ErrorState from "../../components/common/ErrorState";
@@ -183,12 +183,13 @@ const AdminTeamsPage = () => {
               label: "Actions",
               render: (_value, row) => (
                 <div className="button-row">
-                  <button className="btn btn-outline" type="button" onClick={() => setEditing(row)}>
-                    Edit
+                  <button className="btn btn-outline btn-xs" type="button" onClick={() => setEditing(row)} title="Edit">
+                    <Pencil size={14} />
                   </button>
                   <button
-                    className={row.isActive ? "btn btn-danger" : "btn btn-primary"}
+                    className={row.isActive ? "btn btn-danger btn-xs" : "btn btn-primary btn-xs"}
                     type="button"
+                    title={row.isActive ? "Deactivate" : "Activate"}
                     onClick={async () => {
                       try {
                         await teamApi.update(row._id, { isActive: !row.isActive });
@@ -199,7 +200,7 @@ const AdminTeamsPage = () => {
                       }
                     }}
                   >
-                    {row.isActive ? "Deactivate" : "Activate"}
+                    {row.isActive ? <PowerOff size={14} /> : <Power size={14} />}
                   </button>
                 </div>
               )
