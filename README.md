@@ -11,21 +11,21 @@ Production-ready HR Management System with secure Node/Express API, MongoDB, JWT
 
 ## Visual Showcase
 
-| Admin Dashboard | HR Analytics |
-| :---: | :---: |
-| <a href="./screenshots/admin_dashboard.png"><img src="./screenshots/admin_dashboard.png" height="200" alt="Admin Dashboard"></a> | <a href="./screenshots/hr_dashboard.png"><img src="./screenshots/hr_dashboard.png" height="200" alt="HR Analytics"></a> |
+| Admin Dashboard | HR Analytics | Employee Management |
+| :---: | :---: | :---: |
+| <a href="./screenshots/admin_dashboard.png"><img src="./screenshots/admin_dashboard.png" width="300" alt="Admin Dashboard"></a> | <a href="./screenshots/hr_dashboard.png"><img src="./screenshots/hr_dashboard.png" width="300" alt="HR Analytics"></a> | <a href="./screenshots/employee_management.png"><img src="./screenshots/employee_management.png" width="300" alt="Employee Management"></a> |
 
-| Employee Management | Project Management |
-| :---: | :---: |
-| <a href="./screenshots/employee_management.png"><img src="./screenshots/employee_management.png" height="200" alt="Employee Management"></a> | <a href="./screenshots/project_management.png"><img src="./screenshots/project_management.png" height="200" alt="Project Management"></a> |
+| Project Management | Team Management | Admin Attendance |
+| :---: | :---: | :---: |
+| <a href="./screenshots/project_management.png"><img src="./screenshots/project_management.png" width="300" alt="Project Management"></a> | <a href="./screenshots/team_management.png"><img src="./screenshots/team_management.png" width="300" alt="Team Management"></a> | <a href="./screenshots/admin_attendance.png"><img src="./screenshots/admin_attendance.png" width="300" alt="Admin Attendance"></a> |
 
-| Employee Dashboard | Task Management |
-| :---: | :---: |
-| <a href="./screenshots/employee_dashboard.png"><img src="./screenshots/employee_dashboard.png" height="200" alt="Employee Dashboard"></a> | <a href="./screenshots/employee_tasks.png"><img src="./screenshots/employee_tasks.png" height="200" alt="Task Management"></a> |
+| Employee Dashboard | Task Management | Employee Profile |
+| :---: | :---: | :---: |
+| <a href="./screenshots/employee_dashboard.png"><img src="./screenshots/employee_dashboard.png" width="300" alt="Employee Dashboard"></a> | <a href="./screenshots/employee_tasks.png"><img src="./screenshots/employee_tasks.png" width="300" alt="Task Management"></a> | <a href="./screenshots/employee_profile.png"><img src="./screenshots/employee_profile.png" width="300" alt="Employee Profile"></a> |
 
-| Employee Profile | Team Management |
-| :---: | :---: |
-| <a href="./screenshots/employee_profile.png"><img src="./screenshots/employee_profile.png" height="200" alt="Employee Profile"></a> | <a href="./screenshots/team_management.png"><img src="./screenshots/team_management.png" height="200" alt="Team Management"></a> |
+| Attendance Log | Leave Management | Document Vault |
+| :---: | :---: | :---: |
+| <a href="./screenshots/employee_attendance.png"><img src="./screenshots/employee_attendance.png" width="300" alt="Attendance Log"></a> | <a href="./screenshots/employee_leave.png"><img src="./screenshots/employee_leave.png" width="300" alt="Leave Management"></a> | <a href="./screenshots/employee_documents.png"><img src="./screenshots/employee_documents.png" width="300" alt="Document Vault"></a> |
 
 ## Monorepo Structure
 
