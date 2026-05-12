@@ -9,6 +9,32 @@ Production-ready HR Management System with secure Node/Express API, MongoDB, JWT
 - Security: Helmet, CORS, rate limiting, password hashing, role-based route protection
 - Deployment: Docker / Docker Compose, Render (API), Vercel (web)
 
+## Visual Showcase
+
+### Admin Dashboard
+![Admin Dashboard](./screenshots/admin_dashboard.png)
+
+### HR Analytics
+![HR Analytics](./screenshots/hr_dashboard.png)
+
+### Employee Management
+![Employee Management](./screenshots/employee_management.png)
+
+### Project Management
+![Project Management](./screenshots/project_management.png)
+
+### Employee Dashboard
+![Employee Dashboard](./screenshots/employee_dashboard.png)
+
+### Task Management
+![Task Management](./screenshots/employee_tasks.png)
+
+### Employee Profile
+![Employee Profile](./screenshots/employee_profile.png)
+
+### Team Management
+![Team Management](./screenshots/team_management.png)
+
 ## Monorepo Structure
 
 ```text
